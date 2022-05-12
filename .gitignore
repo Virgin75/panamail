@@ -1,0 +1,11 @@
+/env
+env
+migrations
+data
+/data
+static
+/static
+uploads
+/uploads
+/nginx/nginx.key
+/nginx/nginx-certificate.crt
