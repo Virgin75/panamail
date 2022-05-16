@@ -68,7 +68,7 @@ class Workspace(models.Model):
 
 class MemberOfWorkspace(models.Model):
     class Meta:
-        verbose_name_plural = "Members in workspace"
+        verbose_name_plural = "Relations Users <> Workspace"
 
     RIGHT_CHOICES = [
     ('AD','Admin'),
