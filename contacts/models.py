@@ -10,7 +10,8 @@ class Contact(models.Model):
 
     email = models.CharField(max_length=250)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
-    trasac_email_status = models.CharField(max_length=5, choices=STATUS, default='SUB')
+    transac_email_status = models.CharField(max_length=5, choices=STATUS, default='SUB')
+    manual_email_status = models.CharField(max_length=5, choices=STATUS, default='SUB')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -62,15 +63,9 @@ class List(models.Model):
 class ContactInList(models.Model):
     class Meta:
         verbose_name_plural = "Relations Contact <> List"
-    
-    STATUS = [
-    ('SUB', 'Subscribed'),
-    ('UNSUB', 'Unsbiscribed'),
-    ]
 
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     list = models.ForeignKey(List, on_delete=models.CASCADE)
-    status = models.CharField(max_length=5, choices=STATUS)
     added_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

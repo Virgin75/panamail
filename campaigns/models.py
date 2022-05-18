@@ -40,3 +40,18 @@ class Campaign(models.Model):
 
     def __str__(self):
         return f'{self.name} - {self.status} - Workspace: {self.workspace}'
+
+
+class CampaignActivity(models.Model):
+    ACTIVITY_TYPES = [
+        ('OPEN', 'The campaign email was open'),
+        ('CLICK', 'The campaign email was clicked'),
+        ('UNSUB', 'The user unsubscribed from the list'),
+        ('SPAM', 'The user marked the campaign as spam'),
+        ('BOUNC', 'The email bounced'),
+    ]
+
+    type = models.CharField(max_length=5, choices=ACTIVITY_TYPES)
+    campaign_name = models.ForeignKey(Campaign, on_delete=models.CASCADE)
+    user_name = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
