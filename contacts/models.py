@@ -3,8 +3,14 @@ from django.contrib.auth import get_user_model
 from users.models import Workspace
 
 class Contact(models.Model):
+    STATUS = [
+    ('SUB', 'Subscribed'),
+    ('UNSUB', 'Unsbiscribed'),
+    ]
+
     email = models.CharField(max_length=250)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    trasac_email_status = models.CharField(max_length=5, choices=STATUS)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
