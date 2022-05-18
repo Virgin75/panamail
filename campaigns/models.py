@@ -14,10 +14,10 @@ class Sender(models.Model):
 
 class Campaign(models.Model):
     CAMPAIGN_STATUS = [
-        ('DRAFT', "Drag'n'drop designed email"),
-        ('TO VALIDATE', 'Basic WYSIWYG raw text email'),
-        ('SCHEDULED', 'Basic WYSIWYG raw text email'),
-        ('SENT', 'Basic WYSIWYG raw text email'),
+        ('DRAFT', "Campaign is in Draft"),
+        ('TO VALIDATE', 'Campaign to validate'),
+        ('SCHEDULED', 'Campaign scheduled'),
+        ('SENT', 'Campaign sent'),
     ]
     TO_CHOICES = [
         ('LIST', 'Send to a list'),
@@ -28,10 +28,11 @@ class Campaign(models.Model):
     status = models.CharField(max_length=15, choices=CAMPAIGN_STATUS, default='DRAFT')
     sender = models.ForeignKey(Sender, on_delete=models.CASCADE)
     to_type = models.CharField(max_length=10, choices=TO_CHOICES)
-    to_list = models.ForeignKey(List, on_delete=models.CASCADE)
-    to_segment = models.ForeignKey(Segment, on_delete=models.CASCADE)
+    to_list = models.ForeignKey(List, on_delete=models.CASCADE, null=True, blank=True)
+    to_segment = models.ForeignKey(Segment, on_delete=models.CASCADE, null=True, blank=True)
     email_model = models.ForeignKey(Email, on_delete=models.CASCADE)
     subject = models.TextField()
+    scheduled_at = models.DateTimeField(blank=True, null=True)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     #goal = models.ForeignKey(Event, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
