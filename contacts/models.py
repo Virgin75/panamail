@@ -85,7 +85,7 @@ class Segment(models.Model):
 
 class ConditionGroup(models.Model):
     class Meta:
-        verbose_name_plural = "Groups of conditions (in Segment)"
+        verbose_name_plural = "Segment Groups of conditions"
 
     OPERATORS = [
     ('AND', 'And'),
@@ -100,6 +100,9 @@ class ConditionGroup(models.Model):
 
 
 class Condition(models.Model):
+    class Meta:
+        verbose_name_plural = "Segment Conditions"
+
     CONDITION_TYPES = [
     ('FIELD', 'Contact field'),
     ('EVENT', 'Event triggered'),
@@ -139,6 +142,7 @@ class Condition(models.Model):
 
     group = models.ForeignKey(ConditionGroup, on_delete=models.CASCADE)
     type = models.CharField(max_length=5, choices=CONDITION_TYPES)
+    email_to_check = models.CharField(max_length=100, null=True, blank=True)
     field_to_check = models.ForeignKey(CustomField, on_delete=models.CASCADE, null=True, blank=True)
     #event_to_check = models.ForeignKey(CustomField, on_delete=models.CASCADE, null=True, blank=True)
     #page_to_check = models.ForeignKey(CustomField, on_delete=models.CASCADE, null=True, blank=True)

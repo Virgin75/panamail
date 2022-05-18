@@ -22,7 +22,7 @@ class Company(models.Model):
     ('YE', 'yearly'),
     ]
     name = models.CharField(max_length=100)
-    plan = models.ForeignKey(Plan, on_delete=models.CASCADE)
+    plan_name = models.ForeignKey(Plan, on_delete=models.CASCADE)
     billing = models.CharField(max_length=2, choices=BILLING_CHOICES)
     website = models.URLField(max_length=200, null=True, blank=True)
     address = models.CharField(max_length=125, null=True, blank=True)
@@ -30,7 +30,7 @@ class Company(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
-        return f'{self.name} ({self.plan})'
+        return f'{self.name} ({self.plan_name})'
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     class Meta:
