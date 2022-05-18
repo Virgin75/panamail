@@ -58,6 +58,7 @@ class Workspace(models.Model):
     name = models.CharField(max_length=100)
     logo = models.ImageField(upload_to='uploads', null=True, blank=True)
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    auto_utm_field = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
