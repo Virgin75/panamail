@@ -5,6 +5,12 @@ from django.utils.translation import gettext_lazy as _
 
 from .managers import CustomUserManager
 
+class SMTPProvider(models.Model):
+    #TODO: Probably will need more field depending on the provider
+    name = models.CharField(max_length=40)
+    auth_id = models.CharField(max_length=40)
+    auth_password = models.CharField(max_length=40)
+
 class Plan(models.Model):
     name = models.CharField(max_length=20)
     price_ht = models.IntegerField()
@@ -26,6 +32,7 @@ class Company(models.Model):
     billing = models.CharField(max_length=2, choices=BILLING_CHOICES)
     website = models.URLField(max_length=200, null=True, blank=True)
     address = models.CharField(max_length=125, null=True, blank=True)
+    smtp = models.ForeignKey(SMTPProvider, on_delete=models.CASCADE, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
