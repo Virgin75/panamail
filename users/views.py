@@ -21,14 +21,34 @@ class SignUpView(generics.CreateAPIView):
                     email=serializer.data['email'],
                     password=request.data['password']
                     )
-        # Create workspace
-
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, headers=headers)
 
-class RetrieveUpdateView(generics.RetrieveUpdateDestroyAPIView):
+class RetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
 
     def get_object(self):
         return CustomUser.objects.get(id=self.request.user.id)
+
+
+class CreateCompanyView(generics.CreateAPIView):
+    pass
+
+class RetrieveUpdateDestroyCompanyView(generics.RetrieveUpdateDestroyAPIView):
+    pass
+
+class ListCreateWorkspaceView(generics.ListCreateAPIView):
+    pass
+
+class RetrieveUpdateDestroyWorkspaceView(generics.RetrieveUpdateDestroyAPIView):
+    pass
+
+class ListCreateMemberOfWorkspaceView(generics.ListCreateAPIView):
+    pass
+
+class RetrieveUpdateDestroyMemberOfWorkspaceView(generics.RetrieveUpdateDestroyAPIView):
+    pass
+
+class ListSMTPProviderView(generics.ListAPIView):
+    pass

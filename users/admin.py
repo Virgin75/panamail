@@ -1,6 +1,12 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Plan, Company, Workspace, MemberOfWorkspace
+from .models import (
+    CustomUser, 
+    Plan, 
+    Company, 
+    Workspace, 
+    MemberOfWorkspace,
+    SMTPProvider,)
 from .forms import SignupForm, EditForm
 
 class CustomUserAdmin(UserAdmin):
@@ -22,6 +28,7 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ('email',)
     ordering = ('email',)
 
+admin.site.register(SMTPProvider)
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Plan)
 admin.site.register(Company)
