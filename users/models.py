@@ -28,11 +28,11 @@ class Company(models.Model):
     ('YE', 'yearly'),
     ]
     name = models.CharField(max_length=100)
-    plan_name = models.ForeignKey(Plan, on_delete=models.CASCADE)
-    billing = models.CharField(max_length=2, choices=BILLING_CHOICES)
+    plan_name = models.ForeignKey(Plan, on_delete=models.CASCADE, blank=True, null=True)
+    billing = models.CharField(max_length=2, choices=BILLING_CHOICES, default='MO')
     website = models.URLField(max_length=200, null=True, blank=True)
     address = models.CharField(max_length=125, null=True, blank=True)
-    smtp = models.ForeignKey(SMTPProvider, on_delete=models.CASCADE, null=True)
+    smtp = models.ForeignKey(SMTPProvider, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

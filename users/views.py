@@ -1,16 +1,17 @@
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from django.contrib.auth import get_user_model
-from .serializers import UserSerializer
-from .models import CustomUser
+from django.shortcuts import get_object_or_404
+
+from .serializers import UserSerializer, CompanySerializer
+from .models import CustomUser, Company, Workspace, MemberOfWorkspace, SMTPProvider
 
 
 class SignUpView(generics.CreateAPIView):
     permission_classes = []
     serializer_class = UserSerializer
-    queryset = CustomUser.objects.all()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -33,7 +34,24 @@ class RetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class CreateCompanyView(generics.CreateAPIView):
-    pass
+    permission_classes = [IsAuthenticated]
+    serializer_class = CompanySerializer
+
+    def perform_create(self, serializer):
+        return serializer.save()
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        company = self.perform_create(serializer)
+    
+        #After creation of the company we set the user in this company
+        user = CustomUser.objects.get(id=request.user.id)
+        user.company = company
+        user.save()
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 class RetrieveUpdateDestroyCompanyView(generics.RetrieveUpdateDestroyAPIView):
     pass
