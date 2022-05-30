@@ -30,7 +30,9 @@ class SignUpView(generics.CreateAPIView):
             if invit_obj.invited_user == serializer.data['email']:
                 if invit_obj.type == 'CO':
                     user.company = invit_obj.to_company
+                    user.company_role = invit_obj.role
                     user.save()
+                    invit_obj.delete()
                 if invit_obj.type == 'WO':
                     new_member_of_workspace = MemberOfWorkspace(
                         user=user,
@@ -38,6 +40,7 @@ class SignUpView(generics.CreateAPIView):
                         rights=invit_obj.role
                     )
                     new_member_of_workspace.save()
+                    invit_obj.delete()
             
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, headers=headers)
@@ -105,6 +108,36 @@ class CreateInvitationView(generics.CreateAPIView):
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+class ListCompanyMembers(generics.ListAPIView):
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
+    serializer_class = UserSerializer
+    
+    def get_queryset(self):
+        user_company = self.request.user.company
+        users_in_company = CustomUser.objects.filter(company=user_company)
+        return users_in_company
+
+class DeleteMemberOfCompany(generics.UpdateAPIView):
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
+    serializer_class = UserSerializer
+    lookup_field = 'pk'
+    queryset = CustomUser.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        user_company = self.request.user.company
+        users_in_company = CustomUser.objects.filter(company=user_company).values_list('id',flat=True)
+        if not self.kwargs['pk'] in users_in_company:
+            return Response('You can only remove existing users from your company.')
+
+        
+        instance.company = None
+        instance.save()
+        return Response(serializer.data)
 
 class ListCreateWorkspaceView(generics.ListCreateAPIView):
     pass
