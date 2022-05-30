@@ -12,7 +12,8 @@ from .views import (
     RetrieveUpdateDestroyWorkspaceView,
     ListCreateMemberOfWorkspaceView,
     RetrieveUpdateDestroyMemberOfWorkspaceView,
-    ListSMTPProviderView
+    ListSMTPProviderView,
+    CreateInvitationView,
     )
 
 urlpatterns = [
@@ -24,7 +25,7 @@ urlpatterns = [
     path('my-company', RetrieveUpdateDestroyCompanyView.as_view(), name="retrieveupdatedestroycompany"),
     path('workspaces', ListCreateWorkspaceView.as_view(), name="createlistworkspaces"),
     path('workspaces/<int:pk>', RetrieveUpdateDestroyWorkspaceView.as_view(), name="retrieveupdatedestroyworkspace"),
-    path('invitations/', RetrieveUpdateDestroyWorkspaceView.as_view(), name="createinvitation"),
+    path('invitations/', CreateInvitationView.as_view(), name="createinvitation"),
     #invite user to workspace or company
     #edit rights & delete user from workspace
     path('workspaces-members/', ListCreateMemberOfWorkspaceView.as_view(), name="addlistmemberofworkspace"),

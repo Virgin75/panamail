@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 
-from .serializers import UserSerializer, CompanySerializer
+from .serializers import UserSerializer, CompanySerializer, InvitationSerializer
 from .models import CustomUser, Company, Workspace, MemberOfWorkspace, SMTPProvider
 from .permissions import IsCompanyAdmin
 
@@ -62,6 +62,11 @@ class RetrieveUpdateDestroyCompanyView(generics.RetrieveUpdateDestroyAPIView):
             user = self.request.user
             company = user.company
             return company
+
+
+class CreateInvitationView(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
+    serializer_class = InvitationSerializer
 
 class ListCreateWorkspaceView(generics.ListCreateAPIView):
     pass

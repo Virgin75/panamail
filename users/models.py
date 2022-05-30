@@ -89,6 +89,7 @@ class Invitation(models.Model):
     invited_user = models.EmailField(max_length=100)
     type = models.CharField(max_length=2, choices=INVITE_TYPE)
     role = models.CharField(max_length=2, choices=INVITE_ROLE)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
 
 class Workspace(models.Model):
