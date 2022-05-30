@@ -6,7 +6,9 @@ from .models import (
     Company, 
     Workspace, 
     MemberOfWorkspace,
-    SMTPProvider,)
+    SMTPProvider,
+    Invitation
+    )
 from .forms import SignupForm, EditForm
 
 class CustomUserAdmin(UserAdmin):
@@ -34,3 +36,4 @@ admin.site.register(Plan)
 admin.site.register(Company)
 admin.site.register(Workspace)
 admin.site.register(MemberOfWorkspace)
+admin.site.register(Invitation)

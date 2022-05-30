@@ -54,7 +54,13 @@ class CreateCompanyView(generics.CreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 class RetrieveUpdateDestroyCompanyView(generics.RetrieveUpdateDestroyAPIView):
-    pass
+        permission_classes = [IsAuthenticated]
+        serializer_class = CompanySerializer
+
+        def get_object(self):
+            user = self.request.user
+            company = user.company
+            return company
 
 class ListCreateWorkspaceView(generics.ListCreateAPIView):
     pass
