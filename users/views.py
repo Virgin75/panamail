@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 
 from .serializers import UserSerializer, CompanySerializer
 from .models import CustomUser, Company, Workspace, MemberOfWorkspace, SMTPProvider
-
+from .permissions import IsCompanyAdmin
 
 class SignUpView(generics.CreateAPIView):
     permission_classes = []
@@ -48,13 +48,14 @@ class CreateCompanyView(generics.CreateAPIView):
         #After creation of the company we set the user in this company
         user = CustomUser.objects.get(id=request.user.id)
         user.company = company
+        user.company_role = 'AD' #Admin
         user.save()
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 class RetrieveUpdateDestroyCompanyView(generics.RetrieveUpdateDestroyAPIView):
-        permission_classes = [IsAuthenticated]
+        permission_classes = [IsAuthenticated, IsCompanyAdmin]
         serializer_class = CompanySerializer
 
         def get_object(self):

@@ -24,7 +24,8 @@ urlpatterns = [
     path('my-company', RetrieveUpdateDestroyCompanyView.as_view(), name="retrieveupdatedestroycompany"),
     path('workspaces', ListCreateWorkspaceView.as_view(), name="createlistworkspaces"),
     path('workspaces/<int:pk>', RetrieveUpdateDestroyWorkspaceView.as_view(), name="retrieveupdatedestroyworkspace"),
-    #invite user to workspace
+    path('invitations/', RetrieveUpdateDestroyWorkspaceView.as_view(), name="createinvitation"),
+    #invite user to workspace or company
     #edit rights & delete user from workspace
     path('workspaces-members/', ListCreateMemberOfWorkspaceView.as_view(), name="addlistmemberofworkspace"),
     path('workspaces-members/<int:pk>', RetrieveUpdateDestroyMemberOfWorkspaceView.as_view(), name="retrieveupdatedestroymemberofworkspace"),
