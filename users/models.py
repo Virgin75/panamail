@@ -73,6 +73,20 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         return self.email
 
 
+class Workspace(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    logo = models.ImageField(upload_to='uploads', null=True, blank=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    address = models.CharField(max_length=125, null=True, blank=True)
+    auto_utm_field = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return f'{self.name} ({self.company})'
+
+
 class Invitation(models.Model):
     INVITE_TYPE = [
         ('WO', 'Workspace'),
@@ -87,23 +101,11 @@ class Invitation(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     invited_user = models.EmailField(max_length=100)
+    to_company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True)
+    to_workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, null=True, blank=True)
     type = models.CharField(max_length=2, choices=INVITE_TYPE)
     role = models.CharField(max_length=2, choices=INVITE_ROLE)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-
-
-class Workspace(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=100)
-    logo = models.ImageField(upload_to='uploads', null=True, blank=True)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE)
-    address = models.CharField(max_length=125, null=True, blank=True)
-    auto_utm_field = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
-
-    def __str__(self):
-        return f'{self.name} ({self.company})'
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
 
 
