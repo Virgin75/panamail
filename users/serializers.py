@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CustomUser, Company, Invitation
+from .models import CustomUser, Company, Invitation, Workspace
 
 class UserSerializer(serializers.ModelSerializer):
     company = serializers.SlugRelatedField(
@@ -27,3 +27,9 @@ class InvitationSerializer(serializers.ModelSerializer):
         model = Invitation
         fields = '__all__' 
         read_only_fields = ['created_at', 'id']
+
+class WorkspaceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Workspace
+        fields = '__all__' 
+        read_only_fields = ['created_at', 'updated_at', 'id', 'company']

@@ -5,9 +5,9 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 
-from .serializers import UserSerializer, CompanySerializer, InvitationSerializer
+from .serializers import UserSerializer, CompanySerializer, InvitationSerializer, WorkspaceSerializer
 from .models import CustomUser, Invitation, Company, Workspace, MemberOfWorkspace, SMTPProvider
-from .permissions import IsCompanyAdmin
+from .permissions import IsCompanyAdmin, CheckWorkspaceRights
 
 class SignUpView(generics.CreateAPIView):
     permission_classes = []
@@ -133,17 +133,48 @@ class DeleteMemberOfCompany(generics.UpdateAPIView):
         users_in_company = CustomUser.objects.filter(company=user_company).values_list('id',flat=True)
         if not self.kwargs['pk'] in users_in_company:
             return Response('You can only remove existing users from your company.')
-
         
         instance.company = None
         instance.save()
         return Response(serializer.data)
 
 class ListCreateWorkspaceView(generics.ListCreateAPIView):
-    pass
+    permission_classes = [IsAuthenticated]
+    serializer_class = WorkspaceSerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        user_workspaces = MemberOfWorkspace.objects.filter(user=user).values_list('workspace')
+        my_workspaces = Workspace.objects.filter(id__in=user_workspaces)
+        return my_workspaces
+
+    def perform_create(self, serializer):
+        user_company = self.request.user.company
+        return serializer.save(company=user_company)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        created_workspace = self.perform_create(serializer)
+
+        # Then, add the creator of workspace as a member of the workspace
+        new_member = MemberOfWorkspace(
+            user=request.user,
+            workspace=created_workspace,
+            rights='AD'
+        )
+        new_member.save()
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+        
 
 class RetrieveUpdateDestroyWorkspaceView(generics.RetrieveUpdateDestroyAPIView):
-    pass
+    permission_classes = [IsAuthenticated, CheckWorkspaceRights]
+    serializer_class = WorkspaceSerializer
+    lookup_field = 'pk'
+    queryset = Workspace.objects.all()
 
 class ListCreateMemberOfWorkspaceView(generics.ListCreateAPIView):
     pass

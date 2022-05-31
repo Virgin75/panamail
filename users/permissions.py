@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from .models import MemberOfWorkspace
 
 class IsCompanyAdmin(permissions.BasePermission):
     """
@@ -10,4 +11,28 @@ class IsCompanyAdmin(permissions.BasePermission):
             return True
         if request.user.company_role == 'AD':
             return True
+        return False
+
+class CheckWorkspaceRights(permissions.BasePermission):
+    """
+    Object-level permission to only allow admins of workspace 
+    to do anything on it. Workspace members can only retrieve the
+    workspace details.
+    """
+    message = 'You are not allowed to perform this action...'
+
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+        member_of_workspace = MemberOfWorkspace.objects.get(
+            user=user,
+            workspace=obj
+        )
+
+        if member_of_workspace.rights == 'AD':
+            return True
+        if member_of_workspace.rights == 'ME':
+            if request.method == 'GET':
+                return True
+            elif request.method in ('DELETE', 'PUT', 'PATCH'):
+                return False
         return False

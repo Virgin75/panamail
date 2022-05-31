@@ -94,9 +94,7 @@ class Invitation(models.Model):
     ]
     INVITE_ROLE = [
         ('AD', 'Admin'),
-        ('ME', 'Member (Company only)'),
-        ('ED', 'Editor (Workspace only)'),
-        ('VI', 'Viewer (Workspace only)')
+        ('ME', 'Member'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -112,14 +110,14 @@ class Invitation(models.Model):
 class MemberOfWorkspace(models.Model):
     class Meta:
         verbose_name_plural = "Relations Users <> Workspace"
+        unique_together = ('user', 'workspace',)
 
     RIGHT_CHOICES = [
         ('AD','Admin'),
-        ('ED','Editor'),
-        ('VI','Viewer')
+        ('ME','Member')
     ]
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='member')
-    workspace = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     rights = models.CharField(max_length=2, choices=RIGHT_CHOICES)
     added_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
