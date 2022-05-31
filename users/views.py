@@ -5,9 +5,28 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 
-from .serializers import UserSerializer, CompanySerializer, InvitationSerializer, WorkspaceSerializer
-from .models import CustomUser, Invitation, Company, Workspace, MemberOfWorkspace, SMTPProvider
-from .permissions import IsCompanyAdmin, CheckWorkspaceRights
+from .serializers import (
+    UserSerializer, 
+    CompanySerializer, 
+    InvitationSerializer, 
+    WorkspaceSerializer,
+    MemberOfWorkspaceSerializer,
+    SMTPProviderSerializer
+)
+from .models import (
+    CustomUser, 
+    Invitation, 
+    Company, 
+    Workspace, 
+    MemberOfWorkspace, 
+    SMTPProvider
+)
+from .permissions import (
+    IsCompanyAdmin, 
+    CheckWorkspaceRights,
+    CheckMemberOfWorkspaceRights,
+    CheckMemberOfWorkspaceObjRights
+)
 
 class SignUpView(generics.CreateAPIView):
     permission_classes = []
@@ -176,11 +195,25 @@ class RetrieveUpdateDestroyWorkspaceView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'pk'
     queryset = Workspace.objects.all()
 
+
 class ListCreateMemberOfWorkspaceView(generics.ListCreateAPIView):
-    pass
+    permission_classes = [IsAuthenticated, CheckMemberOfWorkspaceRights]
+    serializer_class = MemberOfWorkspaceSerializer
+
+    def get_queryset(self):
+        workspace_id = self.request.GET.get('workspace_id')
+        workspace = Workspace.objects.get(id=workspace_id)
+
+        return MemberOfWorkspace.objects.filter(workspace=workspace)
+
 
 class RetrieveUpdateDestroyMemberOfWorkspaceView(generics.RetrieveUpdateDestroyAPIView):
-    pass
+    permission_classes = [IsAuthenticated, CheckMemberOfWorkspaceObjRights]
+    serializer_class = MemberOfWorkspaceSerializer
+    lookup_field = 'pk'
+    queryset = MemberOfWorkspace.objects.all()
 
 class ListSMTPProviderView(generics.ListAPIView):
-    pass
+    permission_classes = [IsAuthenticated, IsCompanyAdmin]
+    serializer_class = SMTPProviderSerializer
+    queryset = SMTPProvider.objects.all()

@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import CustomUser, Company, Invitation, Workspace
+from .models import (
+    CustomUser, 
+    Company, 
+    Invitation, 
+    Workspace, 
+    MemberOfWorkspace,
+    SMTPProvider
+)
 
 class UserSerializer(serializers.ModelSerializer):
     company = serializers.SlugRelatedField(
@@ -33,3 +40,18 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         model = Workspace
         fields = '__all__' 
         read_only_fields = ['created_at', 'updated_at', 'id', 'company']
+
+class MemberOfWorkspaceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MemberOfWorkspace
+        fields = '__all__' 
+        read_only_fields = ['created_at', 'updated_at']
+
+class SMTPProviderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SMTPProvider
+        fields = '__all__' 
+        extra_kwargs = {
+            'auth_id': {'write_only': True},
+            'auth_password': {'write_only': True},
+        }
