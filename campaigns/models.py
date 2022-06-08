@@ -2,37 +2,9 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from users.models import Workspace
 from contacts.models import List, Segment
-from emails.models import Email
-
-class SenderDomain(models.Model):
-    DOMAIN_STATUS = [
-        ('VERIFIED', 'Domain has been verified'),
-        ('WAITING', 'Domain nameis  yet to be verified'),
-    ]
-
-    domain_name = models.CharField(max_length=75)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
-    status = models.CharField(max_length=10, choices=DOMAIN_STATUS)
-
-    def __str__(self):
-        return f'{self.name} <{self.email_address}>'
+from emails.models import Email, SenderDomain, SenderEmail
 
 
-class SenderEmail(models.Model):
-    SENDER_STATUS = [
-        ('VERIFIED', 'Email address can be used as sender'),
-        ('WAITING', 'Email address needs yet to be verified'),
-    ]
-
-    email_address = models.EmailField(max_length=100)
-    name = models.CharField(max_length=50)
-    reply_to = models.EmailField(max_length=100)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
-    status = models.CharField(max_length=10, choices=SENDER_STATUS)
-    domain = models.ForeignKey(SenderDomain, on_delete=models.CASCADE)
-
-    def __str__(self):
-        return f'{self.name} <{self.email_address}>'
 
 class Campaign(models.Model):
     CAMPAIGN_STATUS = [
