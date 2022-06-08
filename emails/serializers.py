@@ -15,10 +15,10 @@ class SenderDomainSerializer(serializers.ModelSerializer):
     class Meta:
         model = SenderDomain
         fields = '__all__' 
-        read_only_fields = ['workspace', 'status']
+        read_only_fields = ['status']
 
 class SenderEmailSerializer(serializers.ModelSerializer):
     class Meta:
         model = SenderEmail
         fields = '__all__' 
-        read_only_fields = ['workspace', 'status']
+        read_only_fields = ['status']
