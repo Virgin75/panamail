@@ -27,7 +27,7 @@ class SenderEmail(models.Model):
     reply_to = models.EmailField(max_length=100)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     status = models.CharField(max_length=10, choices=SENDER_STATUS, default='WAITING')
-    domain = models.ForeignKey(SenderDomain, on_delete=models.CASCADE)
+    domain = models.ForeignKey(SenderDomain, on_delete=models.CASCADE, null=True)
 
     def __str__(self):
         return f'{self.name} <{self.email_address}>'

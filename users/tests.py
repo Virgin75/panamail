@@ -10,61 +10,6 @@ USER_PASSWORD = 'Azerty123$'
 COMPANY_NAME = 'Panamail'
 WORKSPACE_NAME = 'Panamail w'
 
-# Fixtures
-
-@pytest.fixture
-def company(db):
-    return Company.objects.create(name=COMPANY_NAME)
-
-@pytest.fixture
-def user(db, company):
-    return get_user_model().objects.create(
-        email = USER_EMAIL,
-        password = USER_PASSWORD,
-        company = company,
-        company_role = 'AD'
-    )
-
-@pytest.fixture
-def user2(db, company):
-    return get_user_model().objects.create(
-        email = 'second@gmail.com',
-        password = 'Azerty123$',
-        company = company,
-        company_role = 'ME'
-    )
-
-@pytest.fixture
-def invitation(db, user, company):
-    return Invitation.objects.create(
-        invited_user = 'invitee@gmail.com',
-        type = 'CO',
-        role = 'ME',
-        to_company = company
-    )
-
-@pytest.fixture
-def workspace(db, company):
-    return Workspace.objects.create(
-        name=WORKSPACE_NAME,
-        company=company
-        )
-
-@pytest.fixture
-def workspace_member(db, user, workspace):
-    return MemberOfWorkspace.objects.create(
-        user=user,
-        workspace=workspace,
-        rights='AD'
-    )
-
-@pytest.fixture
-def auth_client(db, user):
-    client = APIClient()
-    token = RefreshToken.for_user(user)
-    client.credentials(HTTP_AUTHORIZATION='Bearer ' + str(token.access_token))
-    return client
-
 
 # Test create user (with invitation)
 @pytest.mark.django_db
