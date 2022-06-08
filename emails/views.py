@@ -18,7 +18,10 @@ from .models import (
     Email
 )
 
-from .permissions import IsMemberOfWorkspace
+from .permissions import (
+    IsMemberOfWorkspace,
+    IsMemberOfWorkspaceObj
+)
 
 class ListCreateEmail(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
@@ -29,6 +32,12 @@ class ListCreateEmail(generics.ListCreateAPIView):
         workspace = get_object_or_404(Workspace, id=workspace_id)
 
         return Email.objects.filter(workspace=workspace)
+
+class RetrieveUpdateDestroyEmail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Email.objects.all()
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
+    serializer_class = EmailSerializer
+    lookup_field = 'pk'
 
 class ListCreateSenderDomain(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
