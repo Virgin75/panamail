@@ -69,3 +69,21 @@ class UpdateCustomFieldOfContact(generics.UpdateAPIView):
             instance._prefetched_objects_cache = {}
 
         return Response(serializer.data)
+
+
+class ListCreateCustomField(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
+    serializer_class = CustomFieldSerializer
+
+    def get_queryset(self):
+        workspace_id = self.request.GET.get('workspace_id')
+        workspace = get_object_or_404(Workspace, id=workspace_id)
+
+        return CustomField.objects.filter(workspace=workspace)
+
+
+class RetrieveUpdateDestroyCustomField(generics.RetrieveUpdateDestroyAPIView):
+    queryset = CustomField.objects.all()
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
+    serializer_class = CustomFieldSerializer
+    lookup_field = 'pk'
