@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth import get_user_model
 from users.models import Workspace
@@ -8,6 +9,7 @@ class Contact(models.Model):
     ('UNSUB', 'Unsbiscribed'),
     ]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.CharField(max_length=250)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     transac_email_status = models.CharField(max_length=5, choices=STATUS, default='SUB')
@@ -44,7 +46,6 @@ class CustomFieldOfContact(models.Model):
     custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE)
     value = models.CharField(max_length=100)
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
@@ -52,6 +53,7 @@ class CustomFieldOfContact(models.Model):
 
 
 class List(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -75,6 +77,7 @@ class ContactInList(models.Model):
 
 
 class Segment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
