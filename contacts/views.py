@@ -1,5 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
@@ -24,7 +25,7 @@ from emails.permissions import (
     IsMemberOfWorkspace,
     IsMemberOfWorkspaceObj
 )
-from .permissions import IsMemberOfWorkspaceObjCustomField
+from .permissions import IsMemberOfWorkspaceCF
 
 class ListCreateContact(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
@@ -45,31 +46,30 @@ class RetrieveUpdateDestroyContact(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'pk'
 
 
-class UpdateCustomFieldOfContact(generics.UpdateAPIView):
-    queryset = CustomFieldOfContact.objects.all()
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObjCustomField]
-    serializer_class = CustomFieldOfContactSerializer
-    lookup_field = 'pk'
+class SetCustomFieldOfContact(APIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceCF]
 
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
+    def post(self, request, contact_pk, format=None):
+        print(contact_pk)
+        for field_to_update, value in request.data.items():
+            #If custom field of contact exists, update it
+            try:
+                cf = CustomFieldOfContact.objects.get(
+                    contact=contact_pk,
+                    custom_field=int(field_to_update)
+                )
+                cf.value = value
+                cf.save()
+            #Else, create it
+            except CustomFieldOfContact.DoesNotExist:
+                cf = CustomFieldOfContact(
+                    contact=get_object_or_404(Contact, id=contact_pk),
+                    custom_field=get_object_or_404(CustomField, id=int(field_to_update)),
+                    value=value
+                )
+                cf.save()
 
-        #Update the Contact instance, so that last update date is changed accordingly
-        contact_id = instance.contact.id
-        contact = Contact.objects.get(id=contact_id)
-        contact.save()
-
-        if getattr(instance, '_prefetched_objects_cache', None):
-            # If 'prefetch_related' has been applied to a queryset, we need to
-            # forcibly invalidate the prefetch cache on the instance.
-            instance._prefetched_objects_cache = {}
-
-        return Response(serializer.data)
-
+        return Response({'status': 'All fields were updated successfully.'})
 
 class ListCreateCustomField(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
@@ -86,4 +86,22 @@ class RetrieveUpdateDestroyCustomField(generics.RetrieveUpdateDestroyAPIView):
     queryset = CustomField.objects.all()
     permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
     serializer_class = CustomFieldSerializer
+    lookup_field = 'pk'
+
+#to test and update
+class ListCreateList(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
+    serializer_class = ListSerializer
+    pagination_class = x20ResultsPerPage
+
+    def get_queryset(self):
+        workspace_id = self.request.GET.get('workspace_id')
+        workspace = get_object_or_404(Workspace, id=workspace_id)
+
+        return List.objects.filter(workspace=workspace)
+
+class RetrieveUpdateDestroyList(generics.RetrieveUpdateDestroyAPIView):
+    queryset = List.objects.all()
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
+    serializer_class = ListSerializer
     lookup_field = 'pk'

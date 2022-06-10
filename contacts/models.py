@@ -11,7 +11,7 @@ class Contact(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.CharField(max_length=250)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
     transac_email_status = models.CharField(max_length=5, choices=STATUS, default='SUB')
     manual_email_status = models.CharField(max_length=5, choices=STATUS, default='SUB')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -33,7 +33,7 @@ class CustomField(models.Model):
 
     type = models.CharField(max_length=4, choices=FIELD_TYPES)
     name = models.CharField(max_length=100)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
 
     def __str__(self):
         return f'{self.type}({self.name})'
@@ -42,6 +42,7 @@ class CustomField(models.Model):
 class CustomFieldOfContact(models.Model):
     class Meta:
         verbose_name_plural = "Relations Contact <> Custom Field"
+        unique_together = ('custom_field', 'contact',)
 
     custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE)
     value = models.CharField(max_length=100)
@@ -55,12 +56,12 @@ class CustomFieldOfContact(models.Model):
 class List(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} from Workspace {self.workspace}"
 
 class ContactInList(models.Model):
     class Meta:
@@ -72,14 +73,14 @@ class ContactInList(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.contact} is in list {self.list}"
 
 
 
 class Segment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    workspace = models.ForeignKey(Workspace, models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
