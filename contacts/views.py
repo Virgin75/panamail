@@ -8,9 +8,9 @@ from django.shortcuts import get_object_or_404
 from .serializers import (
     ContactSerializer,
     CustomFieldSerializer,
-    CustomFieldOfContactSerializer,
     ListSerializer,
-    ContactInListSerializer
+    ContactInListSerializerRead,
+    ContactInListSerializerWrite
 )
 from users.models import Workspace
 from .models import (
@@ -25,7 +25,11 @@ from emails.permissions import (
     IsMemberOfWorkspace,
     IsMemberOfWorkspaceObj
 )
-from .permissions import IsMemberOfWorkspaceCF
+from .permissions import (
+    IsMemberOfWorkspaceCF, 
+    IsMemberOfWorkspaceCL,
+    IsMemberOfWorkspaceObjCF
+)
 
 class ListCreateContact(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
@@ -88,7 +92,7 @@ class RetrieveUpdateDestroyCustomField(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CustomFieldSerializer
     lookup_field = 'pk'
 
-#to test and update
+
 class ListCreateList(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
     serializer_class = ListSerializer
@@ -100,8 +104,34 @@ class ListCreateList(generics.ListCreateAPIView):
 
         return List.objects.filter(workspace=workspace)
 
+
 class RetrieveUpdateDestroyList(generics.RetrieveUpdateDestroyAPIView):
     queryset = List.objects.all()
     permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
     serializer_class = ListSerializer
+    lookup_field = 'pk'
+
+
+class ListContactInList(generics.ListAPIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceCL]
+    serializer_class = ContactInListSerializerRead
+    pagination_class = x20ResultsPerPage
+
+    def get_queryset(self):
+        list_id = self.request.GET.get('list_id')
+        list = get_object_or_404(List, id=list_id)
+
+        return ContactInList.objects.filter(list=list)
+
+
+class CreateContactInList(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceCL]
+    serializer_class = ContactInListSerializerWrite
+    queryset = ContactInList.objects.all()
+
+
+class DeleteContactFromList(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObjCF]
+    serializer_class = ContactInListSerializerRead
+    queryset = ContactInList.objects.all()
     lookup_field = 'pk'

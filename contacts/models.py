@@ -66,6 +66,7 @@ class List(models.Model):
 class ContactInList(models.Model):
     class Meta:
         verbose_name_plural = "Relations Contact <> List"
+        unique_together = ('contact', 'list',)
 
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     list = models.ForeignKey(List, on_delete=models.CASCADE)

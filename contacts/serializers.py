@@ -38,8 +38,17 @@ class ListSerializer(serializers.ModelSerializer):
         fields = '__all__' 
         read_only_fields = ['created_at', 'updated_at']
 
-class ContactInListSerializer(serializers.ModelSerializer):
+class ContactInListSerializerRead(serializers.ModelSerializer):
+    contact = ContactSerializer(many=False, read_only=True)
+
     class Meta:
         model = ContactInList
-        fields = '__all__' 
-        read_only_fields = ['status']
+        fields = '__all__'
+        read_only_fields = ['added_at', 'updated_at']
+
+
+class ContactInListSerializerWrite(serializers.ModelSerializer):
+    class Meta:
+        model = ContactInList
+        fields = '__all__'
+        read_only_fields = ['added_at', 'updated_at']

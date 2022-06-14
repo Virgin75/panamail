@@ -6,7 +6,10 @@ from .views import (
     ListCreateCustomField,
     RetrieveUpdateDestroyCustomField,
     ListCreateList,
-    RetrieveUpdateDestroyList
+    RetrieveUpdateDestroyList,
+    ListContactInList,
+    CreateContactInList,
+    DeleteContactFromList
 )
 
 urlpatterns = [
@@ -17,5 +20,9 @@ urlpatterns = [
     path('custom-fields/<int:pk>', RetrieveUpdateDestroyCustomField.as_view(), name="retrieveupdatedestroycustomfield"),
     path('lists', ListCreateList.as_view(), name="listcreatelist"),
     path('lists/<uuid:pk>', RetrieveUpdateDestroyList.as_view(), name="retrieveupdatedestroylist"),
+    path('contacts-in-list', ListContactInList.as_view(), name="listcontactinlist"),
+    path('add-contact-in-list', CreateContactInList.as_view(), name="createcontactinlist"),
+    path('delete-contact-in-list/<int:pk>', DeleteContactFromList.as_view(), name="deletecontactinlist"),
 
+    #Think of route for bulk CSV import contacts
 ]
