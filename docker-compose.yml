@@ -1,0 +1,46 @@
+version: "3.3"
+
+services:
+
+  nginx:
+    build: ./nginx
+    ports:
+      - 80:80
+    volumes:
+      - ./nginx/nginx.key:/app/nginx/nginx.key
+      - ./nginx/nginx-certificate.crt:/app/nginx/nginx-certificate.crt
+    depends_on:
+      - web
+    restart: "on-failure"
+
+  web:
+    build: .
+    command: >
+      sh -c "python3 manage.py makemigrations users &&
+             python3 manage.py makemigrations emails &&
+             python3 manage.py makemigrations contacts &&
+             python3 manage.py makemigrations campaigns &&
+             python3 manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    expose:
+      - "8000"
+    restart: "on-failure"
+  
+  redis:
+    image: redis:6.2.6
+    ports:
+      - "6379:6379"
+    depends_on:
+      - web
+  
+  celery:
+    build: .
+    command: celery -A panamail worker -l INFO
+    volumes:
+      - .:/app
+    restart: "on-failure"
+    depends_on:
+      - redis
+      - web

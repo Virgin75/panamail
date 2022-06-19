@@ -4,6 +4,9 @@ from django.contrib.auth import get_user_model
 from users.models import Workspace
 
 class Contact(models.Model):
+    class Meta:
+        unique_together = ('email', 'workspace',)
+
     STATUS = [
     ('SUB', 'Subscribed'),
     ('UNSUB', 'Unsbiscribed'),
@@ -45,7 +48,7 @@ class CustomFieldOfContact(models.Model):
         unique_together = ('custom_field', 'contact',)
 
     custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE)
-    value = models.CharField(max_length=100)
+    value = models.CharField(max_length=100, blank=True, null=True)
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

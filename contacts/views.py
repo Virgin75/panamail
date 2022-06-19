@@ -1,3 +1,8 @@
+import csv
+import json
+import io
+import base64
+
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -30,6 +35,8 @@ from .permissions import (
     IsMemberOfWorkspaceCL,
     IsMemberOfWorkspaceObjCF
 )
+from .tasks import do_csv_import
+
 
 class ListCreateContact(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
@@ -54,7 +61,6 @@ class SetCustomFieldOfContact(APIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspaceCF]
 
     def post(self, request, contact_pk, format=None):
-        print(contact_pk)
         for field_to_update, value in request.data.items():
             #If custom field of contact exists, update it
             try:
@@ -135,3 +141,24 @@ class DeleteContactFromList(generics.DestroyAPIView):
     serializer_class = ContactInListSerializerRead
     queryset = ContactInList.objects.all()
     lookup_field = 'pk'
+
+
+class BulkContactCSVImport(APIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
+
+    def post(self, request, format=None):
+        
+        file = request.FILES['csv_file'].read()
+        b64_file = base64.b64encode(file).decode('utf-8')
+        
+        #Celery task to do the csv import
+        print('before')
+        do_csv_import.delay(
+            b64_file,
+            list(json.loads(request.POST['mapping']).values()),
+            request.POST['workspace'],
+            request.POST['update_existing_contacts']
+            )
+        print('after')
+
+        return Response({'status': 'All contacts are being uploaded.'})

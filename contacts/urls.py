@@ -9,7 +9,8 @@ from .views import (
     RetrieveUpdateDestroyList,
     ListContactInList,
     CreateContactInList,
-    DeleteContactFromList
+    DeleteContactFromList,
+    BulkContactCSVImport
 )
 
 urlpatterns = [
@@ -23,6 +24,6 @@ urlpatterns = [
     path('contacts-in-list', ListContactInList.as_view(), name="listcontactinlist"),
     path('add-contact-in-list', CreateContactInList.as_view(), name="createcontactinlist"),
     path('delete-contact-in-list/<int:pk>', DeleteContactFromList.as_view(), name="deletecontactinlist"),
-
+    path('bulk-csv-import', BulkContactCSVImport.as_view(), name="bulkcsvimport")
     #Think of route for bulk CSV import contacts
 ]
