@@ -23,6 +23,19 @@ class Contact(models.Model):
     def __str__(self):
         return f'{self.email} - Workspace: {self.workspace}'
 
+
+class CSVImportHistory(models.Model):
+    nb_created = models.IntegerField()
+    nb_updated = models.IntegerField()
+    nb_errors = models.IntegerField()
+    error_message = models.TextField()
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+    def __str__(self):
+        return f'{self.created_at} - Workspace: {self.workspace}'
+
+
 class CustomField(models.Model):
     class Meta:
         verbose_name_plural = "Custom Fields"
