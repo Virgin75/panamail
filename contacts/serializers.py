@@ -71,3 +71,13 @@ class DatabaseToSyncSerializer(serializers.ModelSerializer):
             instance.db_password = make_password(password)
         instance.save()
         return instance
+
+    def update(self, inst, validated_data):
+        password = validated_data.pop('db_password', None)
+        for key, value in validated_data.items():
+            setattr(inst, key, value)
+
+        if password is not None:
+            inst.db_password = make_password(password)
+        inst.save()
+        return inst

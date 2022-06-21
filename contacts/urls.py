@@ -11,7 +11,8 @@ from .views import (
     CreateContactInList,
     DeleteContactFromList,
     BulkContactCSVImport,
-    ListCreateDbToSync
+    ListCreateDbToSync,
+    RetrieveUpdateDestroyDbToSYnc
 )
 
 urlpatterns = [
@@ -27,4 +28,5 @@ urlpatterns = [
     path('delete-contact-in-list/<int:pk>', DeleteContactFromList.as_view(), name="deletecontactinlist"),
     path('bulk-csv-import', BulkContactCSVImport.as_view(), name="bulkcsvimport"),
     path('sync-db', ListCreateDbToSync.as_view(), name="listcreatedbtosync"),
+    path('sync-db/<int:pk>', RetrieveUpdateDestroyDbToSYnc.as_view(), name="retrieveupdatedestroydbtosync"),
 ]

@@ -1,4 +1,3 @@
-django-cors-headers==3.11.0
 aiohttp==3.8.1
 aiosignal==1.2.0
 amqp==5.0.9
@@ -21,7 +20,10 @@ cycler==0.11.0
 defusedxml==0.7.1
 Deprecated==1.2.13
 Django==4.0
+django-celery-beat==2.3.0
+django-cors-headers==3.11.0
 django-filter==21.1
+django-timezone-field==5.0
 djangorestframework==3.13.1
 djangorestframework-simplejwt==5.0.0
 ffmpeg-python==0.2.0
@@ -32,9 +34,11 @@ future==0.18.2
 gunicorn==20.1.0
 idna==3.3
 importlib-metadata==4.10.1
+inflection==0.3.1
 iniconfig==1.1.1
 kiwisolver==1.3.2
 kombu==5.2.3
+lazy-object-proxy==1.7.1
 Markdown==3.3.6
 matplotlib==3.5.1
 multidict==6.0.2
@@ -50,7 +54,13 @@ pycparser==2.21
 PyJWT==2.3.0
 pyparsing==3.0.6
 pytest==6.2.5
+pytest-assert-utils==0.3.1
+pytest-common-subject==1.0.6
 pytest-django==4.5.2
+pytest-drf==1.1.2
+pytest-fixture-order==0.1.4
+pytest-lambda==1.3.0
+python-crontab==2.6.0
 python-dateutil==2.8.2
 python-dotenv==0.19.2
 python-magic==0.4.25
@@ -61,6 +71,7 @@ sqlparse==0.4.2
 thumbnail==1.5
 tinycss2==1.1.1
 toml==0.10.2
+tzdata==2022.1
 vine==5.0.0
 vtk==9.1.0
 Wand==0.6.7

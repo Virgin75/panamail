@@ -176,3 +176,10 @@ class ListCreateDbToSync(generics.ListCreateAPIView):
         workspace = get_object_or_404(Workspace, id=workspace_id)
 
         return DatabaseToSync.objects.filter(workspace=workspace)
+
+
+class RetrieveUpdateDestroyDbToSYnc(generics.RetrieveUpdateDestroyAPIView):
+    queryset = DatabaseToSync.objects.all()
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
+    serializer_class = DatabaseToSyncSerializer
+    lookup_field = 'pk'

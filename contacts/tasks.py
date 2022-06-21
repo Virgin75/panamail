@@ -13,6 +13,12 @@ from .models import Contact, CustomField, CustomFieldOfContact
 
 logger = get_task_logger(__name__)
 
+
+@celery_app.task(name="add")
+def add(arg):
+    logger.info('auto task !!!')
+    return arg + arg
+
 @celery_app.task(name="do_csv_import")
 def do_csv_import(contacts, column_mapping, workspace_id, update_existing, list_id, unsub):
     """Create all contacts from the csv file imported"""

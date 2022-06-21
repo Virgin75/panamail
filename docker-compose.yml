@@ -44,3 +44,13 @@ services:
     depends_on:
       - redis
       - web
+  
+  celerybeat:
+    build: .
+    command: celery -A panamail beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    restart: "on-failure"
+    depends_on:
+      - redis
+      - web
