@@ -1,10 +1,12 @@
+from django.contrib.auth.hashers import make_password
 from rest_framework import serializers
 from .models import (
     Contact,
     CustomField,
     CustomFieldOfContact,
     List,
-    ContactInList
+    ContactInList,
+    DatabaseToSync
 )
 
 class CustomFieldSerializer(serializers.ModelSerializer):
@@ -52,3 +54,20 @@ class ContactInListSerializerWrite(serializers.ModelSerializer):
         model = ContactInList
         fields = '__all__'
         read_only_fields = ['added_at', 'updated_at']
+
+class DatabaseToSyncSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DatabaseToSync
+        fields = '__all__'
+        extra_kwargs = {
+            'db_password': {'write_only': True},
+        }
+
+    def create(self, validated_data):
+        password = validated_data.pop('db_password', None)
+        instance = self.Meta.model(**validated_data)
+        if password is not None:
+            print(password)
+            instance.db_password = make_password(password)
+        instance.save()
+        return instance

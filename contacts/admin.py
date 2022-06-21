@@ -8,7 +8,8 @@ from .models import (
     Segment,
     Condition,
     ConditionGroup,
-    CSVImportHistory
+    CSVImportHistory,
+    DatabaseToSync
 )
 
 admin.site.register(Contact)
@@ -20,3 +21,4 @@ admin.site.register(Segment)
 admin.site.register(Condition)
 admin.site.register(ConditionGroup)
 admin.site.register(CSVImportHistory)
+admin.site.register(DatabaseToSync)

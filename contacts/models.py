@@ -93,11 +93,27 @@ class ContactInList(models.Model):
         return f"{self.contact} is in list {self.list}"
 
 
+class DatabaseToSync(models.Model):
+    class Meta:
+        verbose_name_plural = "Databases to sync"
+    
+    DB_TYPES = [
+        ('PG', 'PostgreSQL'),
+        ('MY', 'MySQL')
+    ]
+
+    type = models.CharField(max_length=2, choices=DB_TYPES)
+    db_host = models.CharField(max_length=55)
+    db_name = models.CharField(max_length=55)
+    db_user = models.CharField(max_length=55)
+    db_password = models.CharField(max_length=55)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
+
 
 class Segment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    workspace = models.ForeignKey(Workspace, models.SET_NULL, null=True)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

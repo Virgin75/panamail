@@ -15,7 +15,8 @@ from .serializers import (
     CustomFieldSerializer,
     ListSerializer,
     ContactInListSerializerRead,
-    ContactInListSerializerWrite
+    ContactInListSerializerWrite,
+    DatabaseToSyncSerializer
 )
 from users.models import Workspace
 from .models import (
@@ -23,7 +24,8 @@ from .models import (
     CustomField,
     CustomFieldOfContact,
     List,
-    ContactInList
+    ContactInList,
+    DatabaseToSync
 )
 from .paginations import x20ResultsPerPage
 from emails.permissions import (
@@ -163,3 +165,14 @@ class BulkContactCSVImport(APIView):
             )
 
         return Response({'status': 'All contacts are being uploaded.'})
+
+
+class ListCreateDbToSync(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
+    serializer_class = DatabaseToSyncSerializer
+
+    def get_queryset(self):
+        workspace_id = self.request.GET.get('workspace_id')
+        workspace = get_object_or_404(Workspace, id=workspace_id)
+
+        return DatabaseToSync.objects.filter(workspace=workspace)
