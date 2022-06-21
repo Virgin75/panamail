@@ -1,11 +1,13 @@
 import csv
 import io
 import base64
+import psycopg2
+from .encryption_util import decrypt
 from celery.utils.log import get_task_logger
 from django.shortcuts import get_object_or_404
 from pyparsing import line
 from panamail import celery_app
-from .models import Contact, CustomField, List, CustomFieldOfContact, CSVImportHistory, ContactInList
+from .models import Contact, CustomField, List, CustomFieldOfContact, CSVImportHistory, ContactInList, DatabaseToSync, DatabaseRule
 from users.models import Workspace
 
 from .models import Contact, CustomField, CustomFieldOfContact
@@ -16,8 +18,30 @@ logger = get_task_logger(__name__)
 
 @celery_app.task(name="sync_contacts_from_db")
 def sync_contacts_from_db(sync_db_id, rule_id):
-    logger.info('auto task !!!')
+    db = DatabaseToSync.objects.get(id=sync_db_id)
+    rule = DatabaseRule.objects.get(id=rule_id)
+
+    logger.info(str(db.db_host) + ' ' + str(db.db_port) + ' ' + str(db.db_name) + ' ' + str(db.db_user) + ' ' + str(decrypt(db.db_password)))
+
+    conn = psycopg2.connect(
+            host=db.db_host,
+            port=db.db_port,
+            database=db.db_name,
+            user=db.db_user,
+            password=decrypt(db.db_password)
+    )
+    cursor = conn.cursor()
+    cursor.execute(rule.query)
+    conn.commit()
+
+    results = cursor.fetchall()
+
+    logger.info(results)
+    cursor.close()
+    
+    logger.info('Error while connecting to the db')
     return
+
 
 @celery_app.task(name="do_csv_import")
 def do_csv_import(contacts, column_mapping, workspace_id, update_existing, list_id, unsub):

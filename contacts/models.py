@@ -105,9 +105,10 @@ class DatabaseToSync(models.Model):
 
     type = models.CharField(max_length=2, choices=DB_TYPES)
     db_host = models.CharField(max_length=55)
+    db_port = models.CharField(max_length=5, blank=True, null=True)
     db_name = models.CharField(max_length=55)
     db_user = models.CharField(max_length=55)
-    db_password = models.CharField(max_length=55)
+    db_password = models.CharField(max_length=250)
     workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)

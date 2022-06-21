@@ -1,4 +1,5 @@
 from django.contrib.auth.hashers import make_password
+from .encryption_util import encrypt, decrypt
 from rest_framework import serializers
 from .models import (
     Contact,
@@ -68,8 +69,7 @@ class DatabaseToSyncSerializer(serializers.ModelSerializer):
         password = validated_data.pop('db_password', None)
         instance = self.Meta.model(**validated_data)
         if password is not None:
-            print(password)
-            instance.db_password = make_password(password)
+            instance.db_password = encrypt(password)
         instance.save()
         return instance
 
@@ -79,7 +79,7 @@ class DatabaseToSyncSerializer(serializers.ModelSerializer):
             setattr(inst, key, value)
 
         if password is not None:
-            inst.db_password = make_password(password)
+            inst.db_password = encrypt(password)
         inst.save()
         return inst
 
