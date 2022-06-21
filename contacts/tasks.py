@@ -14,10 +14,10 @@ from .models import Contact, CustomField, CustomFieldOfContact
 logger = get_task_logger(__name__)
 
 
-@celery_app.task(name="add")
-def add(arg):
+@celery_app.task(name="sync_contacts_from_db")
+def sync_contacts_from_db(sync_db_id, rule_id):
     logger.info('auto task !!!')
-    return arg + arg
+    return
 
 @celery_app.task(name="do_csv_import")
 def do_csv_import(contacts, column_mapping, workspace_id, update_existing, list_id, unsub):

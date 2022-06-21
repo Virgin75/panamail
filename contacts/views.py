@@ -1,8 +1,10 @@
 import csv
 import json
-import io
+import random
 import base64
+from django import db
 
+from django_celery_beat.models import PeriodicTask, IntervalSchedule
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -16,16 +18,18 @@ from .serializers import (
     ListSerializer,
     ContactInListSerializerRead,
     ContactInListSerializerWrite,
-    DatabaseToSyncSerializer
+    DatabaseToSyncSerializer,
+    DatabaseRuleSerializer
 )
-from users.models import Workspace
+from users.models import Workspace, MemberOfWorkspace
 from .models import (
     Contact,
     CustomField,
     CustomFieldOfContact,
     List,
     ContactInList,
-    DatabaseToSync
+    DatabaseToSync,
+    DatabaseRule
 )
 from .paginations import x20ResultsPerPage
 from emails.permissions import (
@@ -36,6 +40,8 @@ from .permissions import (
     IsMemberOfWorkspaceCF, 
     IsMemberOfWorkspaceCL,
     IsMemberOfWorkspaceObjCF,
+    IsMemberOfWorkspaceObjDB,
+    IsMemberOfWorkspaceDB,
     HasListAccess
 )
 from .tasks import do_csv_import
@@ -178,8 +184,60 @@ class ListCreateDbToSync(generics.ListCreateAPIView):
         return DatabaseToSync.objects.filter(workspace=workspace)
 
 
-class RetrieveUpdateDestroyDbToSYnc(generics.RetrieveUpdateDestroyAPIView):
+class RetrieveUpdateDestroyDbToSync(generics.RetrieveUpdateDestroyAPIView):
     queryset = DatabaseToSync.objects.all()
     permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
     serializer_class = DatabaseToSyncSerializer
     lookup_field = 'pk'
+
+
+class ListCreateDbRule(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceDB]
+    serializer_class = DatabaseRuleSerializer
+
+    def get_queryset(self):
+        db_id = self.request.GET.get('db_id')
+        db = get_object_or_404(DatabaseToSync, id=db_id)
+
+        return DatabaseRule.objects.filter(db=db)
+    
+    def perform_create(self, serializer, task):
+        db_rule = serializer.save(beat_task=task)
+        task.args = json.dumps([serializer.data['db'], db_rule.id])
+        task.enabled = True
+        task.save()
+
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        #Create the celeby beat task
+        unit = request.data['sync_unit']
+        period_mapping = {
+            'SECONDS': IntervalSchedule.SECONDS,
+            'MINUTES': IntervalSchedule.MINUTES,
+            'HOURS': IntervalSchedule.HOURS,
+            'DAYS': IntervalSchedule.DAYS,
+        }
+        schedule = IntervalSchedule(every=unit, period=period_mapping[request.data['sync_period']])
+        schedule.save()
+        task = PeriodicTask(
+            interval=schedule, 
+            name=f'DB sync task by {request.user} - {random.randint(0,9999)}', 
+            task='sync_contacts_from_db',
+            enabled=False
+        )
+        task.save()
+        self.perform_create(serializer, task)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class RetrieveUpdateDestroyDbRule(generics.RetrieveUpdateDestroyAPIView):
+    queryset = DatabaseRule.objects.all()
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObjDB]
+    serializer_class = DatabaseRuleSerializer
+    lookup_field = 'pk'
+

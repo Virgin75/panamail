@@ -109,15 +109,16 @@ class DatabaseToSync(models.Model):
     db_user = models.CharField(max_length=55)
     db_password = models.CharField(max_length=55)
     workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
 
 
 class DatabaseRule(models.Model):
 
     db = models.ForeignKey(DatabaseToSync, on_delete=models.SET_NULL, null=True)
     query = models.TextField()
-    beat_schedule = models.ForeignKey(IntervalSchedule, on_delete=models.SET_NULL, null=True)
+    list = models.ForeignKey(List, on_delete=models.SET_NULL, null=True)
     beat_task = models.ForeignKey(PeriodicTask, on_delete=models.SET_NULL, null=True)
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

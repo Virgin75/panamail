@@ -6,7 +6,8 @@ from .models import (
     CustomFieldOfContact,
     List,
     ContactInList,
-    DatabaseToSync
+    DatabaseToSync,
+    DatabaseRule
 )
 
 class CustomFieldSerializer(serializers.ModelSerializer):
@@ -81,3 +82,10 @@ class DatabaseToSyncSerializer(serializers.ModelSerializer):
             inst.db_password = make_password(password)
         inst.save()
         return inst
+
+
+class DatabaseRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DatabaseRule
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']

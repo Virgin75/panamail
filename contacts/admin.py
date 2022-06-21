@@ -9,7 +9,8 @@ from .models import (
     Condition,
     ConditionGroup,
     CSVImportHistory,
-    DatabaseToSync
+    DatabaseToSync,
+    DatabaseRule
 )
 
 admin.site.register(Contact)
@@ -22,3 +23,4 @@ admin.site.register(Condition)
 admin.site.register(ConditionGroup)
 admin.site.register(CSVImportHistory)
 admin.site.register(DatabaseToSync)
+admin.site.register(DatabaseRule)
