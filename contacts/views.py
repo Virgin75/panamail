@@ -33,7 +33,8 @@ from emails.permissions import (
 from .permissions import (
     IsMemberOfWorkspaceCF, 
     IsMemberOfWorkspaceCL,
-    IsMemberOfWorkspaceObjCF
+    IsMemberOfWorkspaceObjCF,
+    HasListAccess
 )
 from .tasks import do_csv_import
 
@@ -144,7 +145,7 @@ class DeleteContactFromList(generics.DestroyAPIView):
 
 
 class BulkContactCSVImport(APIView):
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspace, HasListAccess]
 
     def post(self, request, format=None):
         
@@ -152,13 +153,13 @@ class BulkContactCSVImport(APIView):
         b64_file = base64.b64encode(file).decode('utf-8')
         
         #Celery task to do the csv import
-        print('before')
         do_csv_import.delay(
             b64_file,
             list(json.loads(request.POST['mapping']).values()),
             request.POST['workspace'],
-            request.POST['update_existing_contacts']
+            request.POST['update_existing_contacts'],
+            request.POST['list'],
+            request.POST['unsub_campaign']
             )
-        print('after')
 
         return Response({'status': 'All contacts are being uploaded.'})

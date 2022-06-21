@@ -5,7 +5,7 @@ from celery.utils.log import get_task_logger
 from django.shortcuts import get_object_or_404
 from pyparsing import line
 from panamail import celery_app
-from .models import Contact, CustomField, CustomFieldOfContact, CSVImportHistory
+from .models import Contact, CustomField, List, CustomFieldOfContact, CSVImportHistory, ContactInList
 from users.models import Workspace
 
 from .models import Contact, CustomField, CustomFieldOfContact
@@ -14,7 +14,7 @@ from .models import Contact, CustomField, CustomFieldOfContact
 logger = get_task_logger(__name__)
 
 @celery_app.task(name="do_csv_import")
-def do_csv_import(contacts, column_mapping, workspace_id, update_existing):
+def do_csv_import(contacts, column_mapping, workspace_id, update_existing, list_id, unsub):
     """Create all contacts from the csv file imported"""
     created_contacts = 0
     updated_contacts = 0
@@ -52,6 +52,19 @@ def do_csv_import(contacts, column_mapping, workspace_id, update_existing):
                             obj.value = field
                             obj.save()
                 
+                #Add contact to selected list
+                if len(list_id) > 1:
+                    membership = ContactInList(
+                        contact=contact_obj,
+                        list=List.objects.get(id=list_id)
+                    )
+                    membership.save()
+                
+                #Set unsub status
+                if unsub == 'True':
+                    contact_obj.manual_email_status = False
+                    contact_obj.save()
+
                 #Update upload metrics
                 if created:
                     created_contacts += 1
