@@ -15,7 +15,7 @@ class Contact(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.CharField(max_length=250)
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='contacts')
     transac_email_status = models.CharField(max_length=5, choices=STATUS, default='SUB')
     manual_email_status = models.CharField(max_length=5, choices=STATUS, default='SUB')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -50,7 +50,7 @@ class CustomField(models.Model):
 
     type = models.CharField(max_length=4, choices=FIELD_TYPES)
     name = models.CharField(max_length=100)
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='customfields')
 
     def __str__(self):
         return f'{self.type}({self.name})'
@@ -73,7 +73,8 @@ class CustomFieldOfContact(models.Model):
 class List(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='lists')
+    contacts = models.ManyToManyField(Contact, through='ContactInList', related_name='lists')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -109,7 +110,7 @@ class DatabaseToSync(models.Model):
     db_name = models.CharField(max_length=55)
     db_user = models.CharField(max_length=55)
     db_password = models.CharField(max_length=250)
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='databasestosync')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -128,7 +129,7 @@ class DatabaseRule(models.Model):
 class Segment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_names='segments')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

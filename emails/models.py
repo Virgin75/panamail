@@ -25,7 +25,7 @@ class SenderEmail(models.Model):
     email_address = models.EmailField(max_length=100)
     name = models.CharField(max_length=50)
     reply_to = models.EmailField(max_length=100)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='senders')
     status = models.CharField(max_length=10, choices=SENDER_STATUS, default='WAITING')
     domain = models.ForeignKey(SenderDomain, on_delete=models.CASCADE, null=True)
 
@@ -43,7 +43,7 @@ class Email(models.Model):
     to_field = models.CharField(max_length=100, blank=True, null=True)
     type = models.CharField(max_length=6, choices=EMAIL_TYPES)
     raw_html = models.TextField()
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='emails')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
