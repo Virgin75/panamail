@@ -118,6 +118,7 @@ class DatabaseRule(models.Model):
 
     db = models.ForeignKey(DatabaseToSync, on_delete=models.SET_NULL, null=True)
     query = models.TextField()
+    column_mapping = models.TextField(null=True)
     list = models.ForeignKey(List, on_delete=models.SET_NULL, null=True)
     beat_task = models.ForeignKey(PeriodicTask, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)

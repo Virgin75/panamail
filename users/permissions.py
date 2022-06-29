@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions
 from .models import MemberOfWorkspace, Workspace
 
@@ -22,15 +23,14 @@ class CheckWorkspaceRights(permissions.BasePermission):
     message = 'You are not allowed to perform this action...'
 
     def has_object_permission(self, request, view, obj):
-        user = request.user
-        member_of_workspace = MemberOfWorkspace.objects.get(
-            user=user,
-            workspace=obj
+        membership = obj.members.through.objects.filter(
+            user=request.user
         )
 
-        if member_of_workspace.rights == 'AD':
+        if membership.rights == 'AD':
             return True
-        if member_of_workspace.rights == 'ME':
+            
+        if membership.rights == 'ME':
             if request.method == 'GET':
                 return True
             elif request.method in ('DELETE', 'PUT', 'PATCH'):
@@ -49,26 +49,17 @@ class CheckMemberOfWorkspaceRights(permissions.BasePermission):
         if request.method == 'POST':
             workspace_id = request.POST['workspace']
             workspace = Workspace.objects.get(id=workspace_id)
-            user = request.user
-
-            membership = MemberOfWorkspace.objects.get(
-                user=user,
-                workspace=workspace
-            )
-            if membership.rights == 'AD':
-                return True
 
         if request.method == 'GET':
             workspace_id = request.GET.get('workspace_id')
-            workspace = Workspace.objects.get(id=workspace_id)
-            user = request.user
-
-            membership = MemberOfWorkspace.objects.get(
-                user=user,
-                workspace=workspace
+            workspace = get_object_or_404(Workspace, id=workspace_id)
+        
+        membership = workspace.members.through.objects.filter(
+                user=request.user,
+                rights='AD'
             )
-            if membership.rights == 'AD':
-                return True
+        if membership.exists():
+            return True
         
         return False
 
@@ -82,15 +73,10 @@ class CheckMemberOfWorkspaceObjRights(permissions.BasePermission):
     message = 'You are not allowed to perform this action...'
 
     def has_object_permission(self, request, view, obj):
-        user = request.user
-        try:
-            user_in_workspace = MemberOfWorkspace.objects.get(
-                user=user,
-                workspace=obj.workspace
-            )
-        except:
-            return False
-
-        if user_in_workspace and user_in_workspace.rights == 'AD':
+        membership = obj.members.through.objects.filter(
+            user=request.user,
+            rights='AD'
+        )
+        if membership.exists():
             return True
         return False

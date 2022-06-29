@@ -35,7 +35,6 @@ class SignUpView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        print(request.data)
         
         user = get_user_model().objects.create_user(
                     email=serializer.data['email'],
@@ -114,8 +113,6 @@ class CreateInvitationView(generics.CreateAPIView):
 
             if serializer.validated_data['type'] == 'CO': #Company type
                 if str(self.request.user.company.id) != str(serializer.validated_data['to_company'].id):
-                    print(f"Value 1 : {self.request.user.company.id}")
-                    print(f"Value 2 : {serializer.validated_data['to_company'].id}")
                     return Response('You can only invite users to YOUR company.')
         
             if serializer.validated_data['type'] == 'WO': #Workspace type
@@ -177,12 +174,11 @@ class ListCreateWorkspaceView(generics.ListCreateAPIView):
         created_workspace = self.perform_create(serializer)
 
         # Then, add the creator of workspace as a member of the workspace
-        new_member = MemberOfWorkspace(
-            user=request.user,
-            workspace=created_workspace,
-            rights='AD'
+        created_workspace.members.add(
+            request.user,
+            through_defaults={'rights': 'AD'}
         )
-        new_member.save()
+        created_workspace.save()
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)

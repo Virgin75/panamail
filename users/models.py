@@ -59,7 +59,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(default=timezone.now)
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, related_name="users")
     company_role = models.CharField(max_length=2, choices=COMPANY_ROLES, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
@@ -80,6 +80,7 @@ class Workspace(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
     address = models.CharField(max_length=125, null=True, blank=True)
     auto_utm_field = models.BooleanField(default=True)
+    members = models.ManyToManyField(CustomUser, through='MemberOfWorkspace', related_name='workspaces')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

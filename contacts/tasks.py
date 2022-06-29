@@ -36,6 +36,10 @@ def sync_contacts_from_db(sync_db_id, rule_id):
 
     results = cursor.fetchall()
 
+    #Get or create contact
+    for contact in results:
+        pass
+
     logger.info(results)
     cursor.close()
     
