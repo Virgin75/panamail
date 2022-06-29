@@ -29,7 +29,7 @@ class CheckWorkspaceRights(permissions.BasePermission):
 
         if membership.rights == 'AD':
             return True
-            
+
         if membership.rights == 'ME':
             if request.method == 'GET':
                 return True
@@ -48,20 +48,16 @@ class CheckMemberOfWorkspaceRights(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method == 'POST':
             workspace_id = request.POST['workspace']
-            workspace = Workspace.objects.get(id=workspace_id)
 
         if request.method == 'GET':
             workspace_id = request.GET.get('workspace_id')
-            workspace = get_object_or_404(Workspace, id=workspace_id)
         
+        workspace = get_object_or_404(Workspace, id=workspace_id)
         membership = workspace.members.through.objects.filter(
                 user=request.user,
                 rights='AD'
             )
-        if membership.exists():
-            return True
-        
-        return False
+        return True if membership.exists() else False
 
 
 class CheckMemberOfWorkspaceObjRights(permissions.BasePermission):
@@ -77,6 +73,4 @@ class CheckMemberOfWorkspaceObjRights(permissions.BasePermission):
             user=request.user,
             rights='AD'
         )
-        if membership.exists():
-            return True
-        return False
+        return True if membership.exists() else False
