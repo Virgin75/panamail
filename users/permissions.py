@@ -1,5 +1,7 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions
+
+from conftest import user
 from .models import MemberOfWorkspace, Workspace
 
 class IsCompanyAdmin(permissions.BasePermission):
@@ -23,7 +25,7 @@ class CheckWorkspaceRights(permissions.BasePermission):
     message = 'You are not allowed to perform this action...'
 
     def has_object_permission(self, request, view, obj):
-        membership = obj.members.through.objects.filter(
+        membership = obj.members.through.objects.get(
             user=request.user
         )
 
@@ -69,8 +71,10 @@ class CheckMemberOfWorkspaceObjRights(permissions.BasePermission):
     message = 'You are not allowed to perform this action...'
 
     def has_object_permission(self, request, view, obj):
-        membership = obj.members.through.objects.filter(
-            user=request.user,
-            rights='AD'
-        )
-        return True if membership.exists() else False
+        membership = get_object_or_404(
+            MemberOfWorkspace,
+                rights='AD',
+                user=request.user,
+                workspace=obj.workspace
+            )
+        return True if membership else False
