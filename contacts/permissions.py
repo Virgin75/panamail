@@ -32,13 +32,13 @@ class IsMemberOfWorkspaceCL(permissions.BasePermission):
             list = get_object_or_404(List.objects.select_related('workspace'), id=request.POST['list'])
             contact = get_object_or_404(Contact.objects.select_related('workspace'), id=request.POST['contact'])
 
-            #Additional check whether Contact belong to one of my Workspace
-            contact_workspace = get_object_or_404(Workspace.objects.select_related('workspace'), id=contact.workspace.id)
+            #Additional check whether Contact belong to one of my Workspaces
+            contact_workspace = get_object_or_404(Workspace, id=contact.workspace.id)
             contact_membership = contact_workspace.members.filter(id=request.user.id)
             if not contact_membership.exists():
                 return False
 
-        list_workspace = get_object_or_404(Workspace.objects.select_related('workspace'), id=list.workspace.id)
+        list_workspace = get_object_or_404(Workspace, id=list.workspace.id)
         list_membership = list_workspace.members.filter(id=request.user.id)
         return True if list_membership.exists() else False
         
@@ -53,36 +53,22 @@ class IsMemberOfWorkspaceDB(permissions.BasePermission):
 
     def has_permission(self, request, view):
         if request.method == 'GET':
-            obj = DatabaseToSync.objects.get(id=request.GET.get('db_id'))
-            workspace_id = obj.workspace.id
-            workspace = get_object_or_404(Workspace, id=workspace_id)
-            user = request.user
-
-            membership = get_object_or_404(
-                MemberOfWorkspace,
-                user=user,
-                workspace=workspace
-            )
-            if membership.user == user:
-                return True
+            db = get_object_or_404(DatabaseToSync.objects.select_related('workspace'), id=request.GET.get('db_id'))
+            
         if request.method == 'POST':
-            user = request.user
-            db = get_object_or_404(DatabaseToSync, id=request.POST['db'])
-            list = get_object_or_404(List, id=request.POST['list'])
+            db = get_object_or_404(DatabaseToSync.objects.select_related('workspace'), id=request.POST['db'])
+            list = get_object_or_404(List.objects.select_related('workspace'), id=request.POST['list'])
 
-            membership = get_object_or_404(
-                MemberOfWorkspace,
-                user=user,
-                workspace=db.workspace
-            )
-            membership = get_object_or_404(
-                MemberOfWorkspace,
-                user=user,
-                workspace=list.workspace
-            )
-            return True
+            #Additional check whether List belong to one of my Workspaces
+            list_workspace = get_object_or_404(Workspace, id=list.workspace.id)
+            list_membership = list_workspace.members.filter(id=request.user.id)
+            if not list_membership.exists():
+                return False
         
-        return False
+        db_workspace = get_object_or_404(Workspace, id=db.workspace.id)
+        db_membership = db_workspace.members.filter(id=request.user.id)
+        return True if db_membership.exists() else False
+
 
 
 class IsMemberOfWorkspaceObjCF(permissions.BasePermission):
