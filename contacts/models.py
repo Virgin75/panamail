@@ -62,7 +62,7 @@ class CustomFieldOfContact(models.Model):
         unique_together = ('custom_field', 'contact',)
 
     custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE)
-    value = models.CharField(max_length=100, blank=True, null=True)
+    value = models.TextField(blank=True, null=True)
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -127,8 +127,14 @@ class DatabaseRule(models.Model):
 
 
 class Segment(models.Model):
+    OPERATORS = [
+        ('AND', 'And'),
+        ('OR', 'Or'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
+    operator = models.CharField(max_length=3, choices=OPERATORS, default='AND')
     workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='segments')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
@@ -137,74 +143,60 @@ class Segment(models.Model):
         return self.name
 
 
-class ConditionGroup(models.Model):
-    class Meta:
-        verbose_name_plural = "Segment Groups of conditions"
-
-    OPERATORS = [
-    ('AND', 'And'),
-    ('OR', 'Or'),
-    ]
-
-    operators = models.CharField(max_length=3, choices=OPERATORS)
-    segment = models.ForeignKey(Segment, on_delete=models.CASCADE)
-
-    def __str__(self):
-        return f'{self.operators}: {self.segment}'
-
-
 class Condition(models.Model):
     class Meta:
         verbose_name_plural = "Segment Conditions"
 
     CONDITION_TYPES = [
-    ('FIELD', 'Contact field'),
-    ('EVENT', 'Event triggered'),
-    ('PAGE', 'Page viewed'),
+        ('EMAIL', 'Contact email ... <input_value>'),
+        ('CUSTOM FIELD', 'Contact <custom_field> ... <input_value>'),
+        ('LIST', 'Contact is in list <input_value>'),
+        ('EVENT', 'Contact has triggered event <input_value>'),
+        ('PAGE', 'Contact has viewed page <input_value>'),
     ]
 
-    CHECK_STR_TYPES = [
-    ('IS', 'is'),
-    ('IS NOT', 'is not'),
-    ('CONTAINS', 'contains'),
-    ('DOES NOT CONTAIN', 'does not contain'),
-    ('EMPTY', 'empty'),
-    ('NOT EMPTY', 'not empty'),
+    CHECK_TYPES = [
+        ('IS', 'is exactly'),
+        ('IS NOT', 'is not'),
+        ('CONTAINS', 'contains'),
+        ('DOES NOT CONTAIN', 'does not contain'),
+        ('IS EMPTY', 'empty'),
+        ('IS NOT EMPTY', 'not empty'),
+        ('EQUALS', 'equals'),
+        ('SUPERIOR', 'superior'),
+        ('SUPOREQUALS', 'superior or equals'),
+        ('INFERIOR', 'inferior'),
+        ('INFOREQUALS', 'inferior or equals'),
+        ('IS TRUE', 'is true'),
+        ('IS FALSE', 'is false'),
+        ('AT', 'At this date'),
+        ('BEFORE', 'Before this date'),
+        ('AFTER', 'After this date'),
+        ('LAST', 'In the last...'),
+        ('BETWEEN', 'Between ... and ...')
     ]
 
-    CHECK_INT_TYPES = [
-    ('EQUALS', 'equals'),
-    ('SUPERIOR', 'superior'),
-    ('SUPOREQUALS', 'superior or equals'),
-    ('INFERIOR', 'inferior'),
-    ('INFOREQUALS', 'inferior or equals'),
+    CHECK_PERIODS = [
+        ('EVER', 'Ever'),
+        ('AT', 'At this date'),
+        ('BEFORE', 'Before this date'),
+        ('AFTER', 'After this date'),
+        ('LAST', 'In the last...'),
+        ('BETWEEN', 'Between ... and ...')
     ]
 
-    CHECK_BOOL_TYPES = [
-    ('IS', 'is true'),
-    ('IS NOT', 'is false'),
-    ]
 
-    CHECK_DATE_TYPES = [
-    ('AT', 'At this date'),
-    ('BEFORE', 'Before this date'),
-    ('AFTER', 'After this date'),
-    ('EVER', 'Ever'),
-    ('LAST', 'In the last...'),
-    ('BETWEEN', 'Between ... and ...')
-    ]
-
-    group = models.ForeignKey(ConditionGroup, on_delete=models.CASCADE)
-    type = models.CharField(max_length=5, choices=CONDITION_TYPES)
-    email_to_check = models.CharField(max_length=100, null=True, blank=True)
-    field_to_check = models.ForeignKey(CustomField, on_delete=models.CASCADE, null=True, blank=True)
-    #event_to_check = models.ForeignKey(CustomField, on_delete=models.CASCADE, null=True, blank=True)
-    #page_to_check = models.ForeignKey(CustomField, on_delete=models.CASCADE, null=True, blank=True)
-    check_condition_str = models.CharField(max_length=20, choices=CHECK_STR_TYPES, null=True, blank=True)
-    check_condition_int = models.CharField(max_length=20, choices=CHECK_INT_TYPES, null=True, blank=True)
-    check_condition_bool = models.CharField(max_length=20, choices=CHECK_BOOL_TYPES, null=True, blank=True)
-    check_condition_date = models.CharField(max_length=20, choices=CHECK_DATE_TYPES, null=True, blank=True)
-    input_str = models.CharField(max_length=100, null=True, blank=True)
+    segment = models.ForeignKey(Segment, on_delete=models.CASCADE, related_name='conditions')
+    custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE, null=True, blank=True)
+    condition_type = models.CharField(max_length=20, choices=CONDITION_TYPES, null=True, blank=True)
+    check_type = models.CharField(max_length=20, choices=CHECK_TYPES, null=True, blank=True)
+    #Contains value to check or object ID (depending on condition_type)
+    input_value = models.TextField( null=True, blank=True)
+    #Below fields are For PAGE & EVENT condition_type only
+    check_period = models.CharField(max_length=20, choices=CHECK_PERIODS, null=True, blank=True)
     input_at_least = models.IntegerField(null=True, blank=True)
     input_date1 = models.DateField(null=True, blank=True)
     input_date2 = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.condition_type} {self.check_type}: {self.input_value} (Segment: {self.segment})"

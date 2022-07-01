@@ -14,7 +14,11 @@ from .views import (
     ListCreateDbToSync,
     RetrieveUpdateDestroyDbToSync,
     ListCreateDbRule,
-    RetrieveUpdateDestroyDbRule
+    RetrieveUpdateDestroyDbRule,
+    ListCreateSegment,
+    RetrieveUpdateDestroySegment,
+    ListCreateCondition,
+    RetrieveUpdateDestroyCondition,
 )
 
 urlpatterns = [
@@ -33,4 +37,9 @@ urlpatterns = [
     path('sync-db/<int:pk>', RetrieveUpdateDestroyDbToSync.as_view(), name="retrieveupdatedestroydbtosync"),
     path('db-rules', ListCreateDbRule.as_view(), name="listcreatedbrules"),
     path('db-rules/<int:pk>', RetrieveUpdateDestroyDbRule.as_view(), name="retrieveupdatedestroydbrule"),
+    #Segments
+    path('segments', ListCreateSegment.as_view(), name="listcreatesegment"),
+    path('segments/<uuid:pk>', RetrieveUpdateDestroySegment.as_view(), name="retrieveupdatedestroysegment"),
+    path('segments/<uuid:segment_pk>/conditions', ListCreateCondition.as_view(), name="listcreatecondition"),
+    path('segments-conditions/<int:pk>', RetrieveUpdateDestroyCondition.as_view(), name="retrieveupdatedestroycondition"),
 ]

@@ -16,6 +16,8 @@ from .serializers import (
     ContactSerializer,
     CustomFieldSerializer,
     ListSerializer,
+    SegmentSerializer,
+    ConditionSerializer,
     ContactInListSerializerRead,
     ContactInListSerializerWrite,
     DatabaseToSyncSerializer,
@@ -29,7 +31,9 @@ from .models import (
     List,
     ContactInList,
     DatabaseToSync,
-    DatabaseRule
+    DatabaseRule,
+    Segment,
+    Condition,
 )
 from .paginations import x20ResultsPerPage
 from emails.permissions import (
@@ -41,8 +45,10 @@ from .permissions import (
     IsMemberOfWorkspaceCL,
     IsMemberOfWorkspaceObjCF,
     IsMemberOfWorkspaceObjDB,
+    IsMemberOfWorkspaceObjC,
+    IsMemberOfWorkspaceSC,
     IsMemberOfWorkspaceDB,
-    HasListAccess
+    HasListAccess,
 )
 from .tasks import do_csv_import
 
@@ -241,3 +247,38 @@ class RetrieveUpdateDestroyDbRule(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = DatabaseRuleSerializer
     lookup_field = 'pk'
 
+class ListCreateSegment(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
+    serializer_class = SegmentSerializer
+
+    def get_queryset(self):
+        workspace_id = self.request.GET.get('workspace_id')
+        workspace = get_object_or_404(Workspace, id=workspace_id)
+
+        return Segment.objects.filter(workspace=workspace)
+
+class RetrieveUpdateDestroySegment(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Segment.objects.all()
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
+    serializer_class = SegmentSerializer
+    lookup_field = 'pk'
+
+
+class ListCreateCondition(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceSC]
+    serializer_class = ConditionSerializer
+
+    def perform_create(self, serializer):
+        segment = Segment.objects.get(id=self.kwargs['segment_pk'])
+        serializer.save(segment=segment)
+
+    def get_queryset(self):
+        segment = get_object_or_404(Segment, id=self.kwargs['segment_pk'])
+        return Condition.objects.filter(segment=segment)
+
+
+class RetrieveUpdateDestroyCondition(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Condition.objects.all()
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObjC]
+    serializer_class = ConditionSerializer
+    lookup_field = 'pk'

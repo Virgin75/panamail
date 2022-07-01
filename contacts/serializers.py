@@ -8,7 +8,9 @@ from .models import (
     List,
     ContactInList,
     DatabaseToSync,
-    DatabaseRule
+    DatabaseRule,
+    Segment,
+    Condition,
 )
 
 class CustomFieldSerializer(serializers.ModelSerializer):
@@ -89,3 +91,17 @@ class DatabaseRuleSerializer(serializers.ModelSerializer):
         model = DatabaseRule
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at']
+
+
+class SegmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Segment
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class ConditionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Condition
+        fields = '__all__'
+        read_only_fields = ['segment']

@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions
-from contacts.models import Contact, List, DatabaseRule, DatabaseToSync
+from contacts.models import Contact, List, DatabaseRule, DatabaseToSync, Segment
 from users.models import MemberOfWorkspace, Workspace
 
 class IsMemberOfWorkspaceCF(permissions.BasePermission):
@@ -105,4 +105,29 @@ class HasListAccess(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         list = get_object_or_404(List.objects.select_related('workspace'), id=request.POST['list'])
         membership = list.workspace.members.filter(id=request.user.id)
+        return True if membership.exists() else False
+
+
+class IsMemberOfWorkspaceSC(permissions.BasePermission):
+    """
+    Permission with following rules : 
+    --> Check if user requesting access is member of the Workspace
+    """
+    message = 'You are not allowed to perform this action...'
+
+    def has_permission(self, request, view):
+        segment = get_object_or_404(Segment.objects.select_related('workspace'), id=view.kwargs['segment_pk'])
+        membership = segment.workspace.members.filter(id=request.user.id)
+
+        return True if membership.exists() else False
+
+class IsMemberOfWorkspaceObjC(permissions.BasePermission):
+    """
+    Permission with following rules : 
+    --> Check if user requesting access is member of the Workspace
+    """
+    message = 'You are not allowed to perform this action...'
+
+    def has_object_permission(self, request, view, obj):
+        membership = obj.segment.workspace.members.filter(id=request.user.id)
         return True if membership.exists() else False
