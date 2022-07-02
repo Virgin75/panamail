@@ -3,6 +3,7 @@ import json
 from django.contrib.auth import get_user_model
 from users.models import Company, Workspace, MemberOfWorkspace, Invitation
 from emails.models import Email, SenderDomain, SenderEmail
+from contacts.models import Contact, CustomField, List, Segment, ContactInList, Condition
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -83,6 +84,53 @@ def sender_email(db, workspace, sender_domain):
         name='Contact',
         domain=sender_domain,
         workspace=workspace
+    )
+
+@pytest.fixture
+def contact(db, workspace):
+    return Contact.objects.create(
+        email='contact@panamail.com',
+        workspace=workspace
+    )
+
+@pytest.fixture
+def custom_field(db, workspace):
+    return CustomField.objects.create(
+        type='str',
+        name='first_name',
+        workspace=workspace
+    )
+
+@pytest.fixture
+def list(db, workspace):
+    return List.objects.create(
+        name='Newsletter Client',
+        workspace=workspace
+    )
+
+@pytest.fixture
+def segment(db, workspace):
+    return Segment.objects.create(
+        name='Active users',
+        operator='AND',
+        workspace=workspace
+    )
+
+@pytest.fixture
+def condition(db, workspace, custom_field, segment):
+    return Condition.objects.create(
+        condition_type='CUSTOM FIELD',
+        custom_field=custom_field,
+        check_type='IS NOT',
+        input_value='Albert',
+        segment=segment
+    )
+
+@pytest.fixture
+def contact_in_list(db, workspace, contact, list):
+    return ContactInList.objects.create(
+        contact=contact,
+        list=list
     )
 
 @pytest.fixture
