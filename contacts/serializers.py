@@ -1,6 +1,9 @@
 from django.contrib.auth.hashers import make_password
+from collections import OrderedDict
 from .encryption_util import encrypt, decrypt
 from rest_framework import serializers
+from .utils import retrieve_segment_members
+from users.serializers import UserSerializer
 from .models import (
     Contact,
     CustomField,
@@ -18,11 +21,26 @@ class CustomFieldSerializer(serializers.ModelSerializer):
         model = CustomField
         fields = '__all__' 
 
+
 class CustomFieldOfContactSerializer(serializers.ModelSerializer):
+    value = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomFieldOfContact
         fields = ['custom_field', 'value', 'updated_at']
         read_only_fields = ['custom_field', 'updated_at']
+
+    def get_value(self, obj):
+        print(type(obj.value_str))
+        if obj.value_str is not None or obj.value_str != '':
+            return obj.value_str
+        elif obj.value_int is not None:
+            return obj.value_int
+        elif obj.value_bool is not None:
+            return obj.value_bool
+        elif obj.value_date is not None:
+            return obj.value_date
+
 
 class ContactSerializer(serializers.ModelSerializer):
     custom_fields = serializers.SerializerMethodField()
@@ -98,6 +116,20 @@ class SegmentSerializer(serializers.ModelSerializer):
         model = Segment
         fields = '__all__'
         read_only_fields = ['created_at', 'updated_at']
+
+
+class SegmentWithMembersSerializer(serializers.ModelSerializer):
+    members = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Segment
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at']
+    
+    def get_members(self, obj):
+        users = retrieve_segment_members(obj.id)
+        key_value = UserSerializer(users, many=True)
+        return key_value.data
 
 
 class ConditionSerializer(serializers.ModelSerializer):

@@ -17,6 +17,7 @@ from .serializers import (
     CustomFieldSerializer,
     ListSerializer,
     SegmentSerializer,
+    SegmentWithMembersSerializer,
     ConditionSerializer,
     ContactInListSerializerRead,
     ContactInListSerializerWrite,
@@ -79,19 +80,50 @@ class SetCustomFieldOfContact(APIView):
         for field_to_update, value in request.data.items():
             #If custom field of contact exists, update it
             try:
-                cf = CustomFieldOfContact.objects.get(
+                cf = CustomFieldOfContact.objects.select_related('custom_field').get(
                     contact=contact_pk,
                     custom_field=int(field_to_update)
                 )
-                cf.value = value
+                if cf.custom_field.type == 'str':
+                    cf.value_str = value
+                elif cf.custom_field.type == 'int':
+                    cf.value_int = value
+                elif cf.custom_field.type == 'bool':
+                    cf.value_bool = value
+                elif cf.custom_field.type == 'date':
+                    cf.value_date = value
+                
                 cf.save()
             #Else, create it
             except CustomFieldOfContact.DoesNotExist:
-                cf = CustomFieldOfContact(
-                    contact=get_object_or_404(Contact, id=contact_pk),
-                    custom_field=get_object_or_404(CustomField, id=int(field_to_update)),
-                    value=value
-                )
+                field = get_object_or_404(CustomField, id=int(field_to_update))
+                contact = get_object_or_404(Contact, id=contact_pk)
+
+                if field.type == 'str':
+                    cf = CustomFieldOfContact(
+                        contact=contact,
+                        custom_field=field,
+                        value_str=value
+                    )
+                elif field.type == 'int':
+                    cf = CustomFieldOfContact(
+                        contact=contact,
+                        custom_field=field,
+                        value_int=value
+                    )
+                elif field.type == 'bool':
+                    cf = CustomFieldOfContact(
+                        contact=contact,
+                        custom_field=field,
+                        value_bool=value
+                    )
+                elif field.type == 'date':
+                    cf = CustomFieldOfContact(
+                        contact=contact,
+                        custom_field=field,
+                        value_date=value
+                    )
+
                 cf.save()
 
         return Response({'status': 'All fields were updated successfully.'})
@@ -260,8 +292,17 @@ class ListCreateSegment(generics.ListCreateAPIView):
 class RetrieveUpdateDestroySegment(generics.RetrieveUpdateDestroyAPIView):
     queryset = Segment.objects.all()
     permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
-    serializer_class = SegmentSerializer
+    serializer_class = SegmentWithMembersSerializer
     lookup_field = 'pk'
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = SegmentSerializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response(serializer.data)
 
 
 class ListCreateCondition(generics.ListCreateAPIView):

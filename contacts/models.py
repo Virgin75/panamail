@@ -42,10 +42,10 @@ class CustomField(models.Model):
         verbose_name_plural = "Custom Fields"
 
     FIELD_TYPES = [
-    ('str', 'String'),
-    ('int', 'Integer'),
-    ('bool', 'Boolean'),
-    ('date', 'Date'),
+        ('str', 'String'),
+        ('int', 'Integer'),
+        ('bool', 'Boolean'),
+        ('date', 'Date'),
     ]
 
     type = models.CharField(max_length=4, choices=FIELD_TYPES)
@@ -62,12 +62,15 @@ class CustomFieldOfContact(models.Model):
         unique_together = ('custom_field', 'contact',)
 
     custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE)
-    value = models.TextField(blank=True, null=True)
+    value_str = models.TextField(blank=True, null=True)
+    value_int = models.IntegerField(blank=True, null=True)
+    value_bool = models.BooleanField(blank=True, null=True)
+    value_date = models.DateField(blank=True, null=True)
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
-        return f'{self.contact}: {self.custom_field} = {self.value}'
+        return f'{self.contact} <> {self.custom_field}'
 
 
 class List(models.Model):
