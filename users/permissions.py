@@ -16,6 +16,19 @@ class IsCompanyAdmin(permissions.BasePermission):
             return True
         return False
 
+class CompanyAdminCreateWorkspace(permissions.BasePermission):
+    """
+    User level permission to allow only company admin
+    to update or delete their company.
+    """
+    def has_permission(self, request, view):
+        if request.method == 'GET':
+            return True
+        if request.user.company_role == 'AD' and request.method == 'POST':
+            return True
+        return False
+
+
 class CheckWorkspaceRights(permissions.BasePermission):
     """
     Object-level permission to only allow admins of workspace 

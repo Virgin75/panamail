@@ -22,7 +22,8 @@ from .models import (
     SMTPProvider
 )
 from .permissions import (
-    IsCompanyAdmin, 
+    IsCompanyAdmin,
+    CompanyAdminCreateWorkspace,
     CheckWorkspaceRights,
     CheckMemberOfWorkspaceRights,
     CheckMemberOfWorkspaceObjRights
@@ -155,7 +156,7 @@ class DeleteMemberOfCompany(generics.UpdateAPIView):
         return Response(serializer.data)
 
 class ListCreateWorkspaceView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, CompanyAdminCreateWorkspace]
     serializer_class = WorkspaceSerializer
     
     def get_queryset(self):

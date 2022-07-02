@@ -76,6 +76,7 @@ class CustomFieldOfContact(models.Model):
 class List(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
+    description = models.TextField(null=True, blank=True)
     workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='lists')
     contacts = models.ManyToManyField(Contact, through='ContactInList', related_name='lists')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -137,6 +138,7 @@ class Segment(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
+    description = models.TextField(null=True, blank=True)
     operator = models.CharField(max_length=3, choices=OPERATORS, default='AND')
     workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='segments')
     created_at = models.DateTimeField(auto_now_add=True, null=True)

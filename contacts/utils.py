@@ -120,7 +120,17 @@ DOCUMENTATION REQUEST:
     Create LIST condition:
         - condition_type = LIST
         - check_type = EQUALS
-        - input_value = UUID of the List
+        - input_value = UUID of the List instance
+    
+    Create EVENT condition:
+        - condition_type = EVENT
+        - check_type = EQUALS
+        - input_value = UUID of the Event instance
+    
+    Create PAGE condition:
+        - condition_type = PAGE
+        - check_type = EQUALS
+        - input_value = UUID of the Page instance
 
 
 '''
