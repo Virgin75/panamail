@@ -66,7 +66,7 @@ class CustomFieldOfContact(models.Model):
     value_int = models.IntegerField(blank=True, null=True)
     value_bool = models.BooleanField(blank=True, null=True)
     value_date = models.DateField(blank=True, null=True)
-    contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='custom_fields')
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
@@ -175,7 +175,7 @@ class Condition(models.Model):
         ('AT', 'At this date'),
         ('BEFORE', 'Before this date'),
         ('AFTER', 'After this date'),
-        ('LAST', 'In the last...'),
+        ('LASTDAYS', 'In the last... days'),
         ('BETWEEN', 'Between ... and ...')
     ]
 
@@ -194,10 +194,12 @@ class Condition(models.Model):
     condition_type = models.CharField(max_length=20, choices=CONDITION_TYPES, null=True, blank=True)
     check_type = models.CharField(max_length=20, choices=CHECK_TYPES, null=True, blank=True)
     #Contains value to check or object ID (depending on condition_type)
-    input_value = models.TextField( null=True, blank=True)
+    input_value = models.TextField(null=True, blank=True)
+    input_value2 = models.TextField(null=True, blank=True)
     #Below fields are For PAGE & EVENT condition_type only
     check_period = models.CharField(max_length=20, choices=CHECK_PERIODS, null=True, blank=True)
     input_at_least = models.IntegerField(null=True, blank=True)
+    in_last_x_days = models.IntegerField(null=True, blank=True)
     input_date1 = models.DateField(null=True, blank=True)
     input_date2 = models.DateField(null=True, blank=True)
 

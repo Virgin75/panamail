@@ -1,15 +1,16 @@
 import operator
+from datetime import datetime, timedelta
 from functools import reduce
 from django.db.models import Q
-from .models import Segment, Condition, Contact
+from .models import Segment, Condition, Contact, CustomField, CustomFieldOfContact
 
 def retrieve_segment_members(segment_id):
     #Mapping check_types <> django Q filters
     mapping = {
-        'IS': ('exact', True),
-        'IS NOT': ('exact', False),
-        'CONTAINS': ('contains', True),
-        'DOES NOT CONTAIN': ('contains', False),
+        'IS': ('iexact', True),
+        'IS NOT': ('iexact', False),
+        'CONTAINS': ('icontains', True),
+        'DOES NOT CONTAIN': ('icontains', False),
         'IS EMPTY': ('isnull', True),
         'IS NOT EMPTY': ('isnull', False),
 
@@ -23,11 +24,12 @@ def retrieve_segment_members(segment_id):
         'IS FALSE': ('exact', True),
 
         'AT': ('exact', True),
-        'BEFORE': ('exact', True),
-        'AFTER': ('exact', True),
-        'LAST': ('exact', True),
-        'BETWEEN': ('exact', True)
+        'BEFORE': ('lt', True),
+        'AFTER': ('gt', True),
+        'LASTDAYS': ('gte', True),
+        'BETWEEN': ('range', True)
     }
+
     #Get all conditions of the segment
     segment = Segment.objects.select_related('workspace').get(id=segment_id)
     conditions = segment.conditions.all()
@@ -35,14 +37,56 @@ def retrieve_segment_members(segment_id):
 
     for condition in conditions:
         if condition.condition_type == 'EMAIL':
-            if 'NOT' in condition.check_type:
-                key = f"email__i{condition.check_type.lower()}"
-                value = condition.input_value
-                filter_queries.append(~Q(**{ key: value}))
-            else:
-                key = f"email__i{condition.check_type.lower()}"
-                value = condition.input_value
+            key = f"email__{mapping[condition.check_type][0]}"
+            value = condition.input_value
+            if mapping[condition.check_type][1]:
                 filter_queries.append(Q(**{ key: value}))
+            else:
+                filter_queries.append(~Q(**{ key: value}))
+
+        if condition.condition_type == 'CUSTOM FIELD':
+            if condition.custom_field.type == 'str':
+                key = f"custom_fields__value_str__{mapping[condition.check_type][0]}"
+                value = condition.input_value
+                if mapping[condition.check_type][1]:
+                    filter_queries.append(Q(**{ key: value}))
+                else:
+                    filter_queries.append(~Q(**{ key: value}))
+            if condition.custom_field.type == 'int':
+                key = f"custom_fields__value_int__{mapping[condition.check_type][0]}"
+                value = condition.input_value
+                if mapping[condition.check_type][1]:
+                    filter_queries.append(Q(**{ key: value}))
+                else:
+                    filter_queries.append(~Q(**{ key: value}))
+            if condition.custom_field.type == 'bool':
+                key = f"custom_fields__value_bool__{mapping[condition.check_type][0]}"
+                value = condition.input_value
+                if mapping[condition.check_type][1]:
+                    filter_queries.append(Q(**{ key: value}))
+                else:
+                    filter_queries.append(~Q(**{ key: value}))
+            if condition.custom_field.type == 'date':
+                key = f"custom_fields__value_date__{mapping[condition.check_type][0]}"
+                value = condition.input_value
+                if condition.check_type == 'LASTDAYS':
+                    value = datetime.now()-timedelta(days=int(condition.input_value))
+                elif condition.check_type == 'BETWEEN':
+                    value = (condition.input_value, condition.input_value2)
+
+                if mapping[condition.check_type][1]:
+                    filter_queries.append(Q(**{ key: value}))
+                else:
+                    filter_queries.append(~Q(**{ key: value}))
+        
+        if condition.condition_type == 'LIST':
+            key = f"lists__id__{mapping[condition.check_type][0]}"
+            value = condition.input_value
+            if mapping[condition.check_type][1]:
+                filter_queries.append(Q(**{ key: value}))
+            else:
+                filter_queries.append(~Q(**{ key: value}))
+
 
     #Generate final Contacts queryset
     if segment.operator == 'AND':
@@ -54,5 +98,29 @@ def retrieve_segment_members(segment_id):
         queryset = Contact.objects.filter(
             reduce(operator.or_, filter_queries),
             workspace=segment.workspace,
-        )
+        ).distinct()
     print(queryset)
+    return queryset    
+
+
+'''
+DOCUMENTATION REQUEST:
+    Create EMAIL condition:
+        - condition_type = EMAIL
+        - check_type = WHATEVER str type
+        - input_value = email to search
+
+    Create CUSTOM FIELD condition:
+        - condition_type = CUSTOM FIELD
+        - custom_field = int ID of the Custom Field 
+        - check_type = WHATEVER related type
+        - input_value = value to search
+        - input_value2 = value 2 to search (in case we need a 2nd date)
+
+    Create LIST condition:
+        - condition_type = LIST
+        - check_type = EQUALS
+        - input_value = UUID of the List
+
+
+'''

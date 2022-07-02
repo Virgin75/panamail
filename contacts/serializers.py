@@ -1,4 +1,5 @@
 from django.contrib.auth.hashers import make_password
+from django.core.paginator import Paginator
 from collections import OrderedDict
 from .encryption_util import encrypt, decrypt
 from rest_framework import serializers
@@ -30,15 +31,14 @@ class CustomFieldOfContactSerializer(serializers.ModelSerializer):
         fields = ['custom_field', 'value', 'updated_at']
         read_only_fields = ['custom_field', 'updated_at']
 
-    def get_value(self, obj):
-        print(type(obj.value_str))
-        if obj.value_str is not None or obj.value_str != '':
+    def get_value(self, obj):        
+        if obj.custom_field.type == 'str':
             return obj.value_str
-        elif obj.value_int is not None:
+        elif obj.custom_field.type == 'int':
             return obj.value_int
-        elif obj.value_bool is not None:
+        elif obj.custom_field.type == 'bool':
             return obj.value_bool
-        elif obj.value_date is not None:
+        elif obj.custom_field.type == 'date':
             return obj.value_date
 
 
@@ -127,9 +127,13 @@ class SegmentWithMembersSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
     
     def get_members(self, obj):
-        users = retrieve_segment_members(obj.id)
-        key_value = UserSerializer(users, many=True)
-        return key_value.data
+        contacts = retrieve_segment_members(obj.id)
+        paginator = Paginator(contacts, 20) #20 per page
+        page = self.context['request'].query_params.get('p') or 1
+        members_in_segment = paginator.page(page)
+
+        key_value = ContactSerializer(members_in_segment, many=True)
+        return {'nb_members': contacts.count(), 'contacts': key_value.data}
 
 
 class ConditionSerializer(serializers.ModelSerializer):
