@@ -22,4 +22,5 @@ urlpatterns = [
     path('contacts/', include(('contacts.urls', 'contacts'), namespace='contacts')),
     path('emails/', include(('emails.urls', 'emails'), namespace='emails')),
     path('campaigns/', include(('campaigns.urls', 'campaigns'), namespace='campaigns')),
+    path('api/', include(('trackerapi.urls', 'trackerapi'), namespace='trackerapi')),
 ]

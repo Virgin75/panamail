@@ -49,7 +49,7 @@ class TrackerAPIKey(models.Model):
         verbose_name_plural = "Tracker API keys"
 
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='api_keys')
-    token = models.UUIDField(default=uuid.uuid4, editable=False)
+    token = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     def __str__(self):
         return f'API Key for: {self.workspace}'
