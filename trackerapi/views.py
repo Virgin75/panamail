@@ -1,3 +1,6 @@
+import json
+import re
+from datetime import datetime
 from django.shortcuts import get_object_or_404, render
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -14,6 +17,7 @@ from .models import (
 from .serializers import (
     TrackerAPIKeySerializer,
     PageSerializer,
+    EventSerializer,
 )
 from emails.permissions import IsMemberOfWorkspace
 from .permissions import(
@@ -33,7 +37,6 @@ class ListCreateTrackerAPIKey(generics.ListCreateAPIView):
         return TrackerAPIKey.objects.filter(workspace=workspace)
     
     
-
 class TrackPages(generics.CreateAPIView):
     permission_classes = [IsTokenValid, IsTrackedContactInWorkspace]
     serializer_class = PageSerializer
@@ -66,3 +69,60 @@ class ListPages(generics.ListAPIView):
         workspace_id = self.request.GET.get('workspace_id')
         workspace = get_object_or_404(Workspace, id=workspace_id)
         return Page.objects.filter(workspace=workspace)
+
+   
+class TrackEvents(generics.CreateAPIView):
+    permission_classes = [IsTokenValid, IsTrackedContactInWorkspace]
+    serializer_class = EventSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        api_key = TrackerAPIKey.objects.get(
+            token=self.request.data['api_token']
+        )
+        contact = get_object_or_404(
+                Contact, 
+                email=request.data['contact_email'],
+                workspace=api_key.workspace
+        )
+        event = self.perform_create(serializer, api_key.workspace, contact)
+        #set attributes of the event
+        json_attr = json.loads(str(request.data['attributes']))
+        for key, value in json_attr.items():
+            ea = None
+            if re.match(r"([0-9]{4}-[0-9]{2}-[0-9]{2})", str(value)):
+                ea = EventAttribute(
+                    event=event,
+                    key=key,
+                    type='date',
+                    value_date=value
+                )
+            elif isinstance(value, str):
+                ea = EventAttribute(
+                    event=event,
+                    key=key,
+                    type='str',
+                    value_str=value
+                )
+            elif isinstance(value, bool):
+                ea = EventAttribute(
+                    event=event,
+                    key=key,
+                    type='bool',
+                    value_bool=value
+                )
+            elif isinstance(value, int):
+                ea = EventAttribute(
+                    event=event,
+                    key=key,
+                    type='int',
+                    value_int=value
+                )
+            ea.save()
+            
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def perform_create(self, serializer, workspace, contact):
+        return serializer.save(workspace=workspace, triggered_by_contact=contact)
