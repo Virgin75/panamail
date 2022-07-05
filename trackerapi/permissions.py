@@ -1,6 +1,8 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions
+from contacts.models import Contact
 from users.models import MemberOfWorkspace, Workspace
+from .models import TrackerAPIKey
 
 class IsWorkspaceAdmin(permissions.BasePermission):
     """
@@ -21,4 +23,38 @@ class IsWorkspaceAdmin(permissions.BasePermission):
             rights='AD'
         )
         return True if membership.exists() else False
+
+class IsTokenValid(permissions.BasePermission):
+    """
+    Permission with following rules : 
+    --> The token in data['api_token'] must be valid to proceed
+    """
+    message = 'Your API token is not valid...'
+
+    def has_permission(self, request, view):
+        api_token = TrackerAPIKey.objects.filter(
+            token=request.data['api_token']
+        )
+        return True if api_token.exists() else False
+
+class IsTrackedContactInWorkspace(permissions.BasePermission):
+    """
+    Permission with following rules : 
+    --> The tracked contact must belong to the user Workspace
+    """
+    message = 'This contact does not belong to your workspace...'
+
+    def has_permission(self, request, view):
+        if request.method == 'GET':
+            return True
+        else:
+            api_key = TrackerAPIKey.objects.get(
+                token=request.data['api_token']
+            )
+            contact = get_object_or_404(
+                Contact, 
+                email=request.data['contact_email'],
+                workspace=api_key.workspace
+            )
+            return True if contact.workspace.id == api_key.workspace.id else False
         

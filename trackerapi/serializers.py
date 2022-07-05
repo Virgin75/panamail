@@ -6,3 +6,9 @@ class TrackerAPIKeySerializer(serializers.ModelSerializer):
         model = TrackerAPIKey
         fields = '__all__' 
         read_only_fields = ['token']
+
+class PageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Page
+        fields = '__all__' 
+        read_only_fields = ['viewed_at', 'workspace', 'viewed_by_contact']

@@ -7,7 +7,8 @@ class Page(models.Model):
     url = models.CharField(max_length=150) #Or screen name
     viewed_by_contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='pages')
     viewed_at = models.DateTimeField(auto_now_add=True, null=True)
-    
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='pages', null=True, blank=True)
+
     def __str__(self):
         return f'Page: {self.url} viewed by {self.viewed_by_contact}'
 
@@ -16,6 +17,7 @@ class Event(models.Model):
     name = models.CharField(max_length=80)
     triggered_by_contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='events')
     triggered_at = models.DateTimeField(auto_now_add=True, null=True)
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='events', null=True, blank=True)
     
     def __str__(self):
         return f'Event: {self.name} triggered by {self.triggered_by_contact} at {self.triggered_at}'
