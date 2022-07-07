@@ -36,7 +36,7 @@ class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = ['name', 'triggered_at', 'triggered_by_contact', 'attributes', 'workspace']
-        read_only_fields = ['triggered_at', 'workspace', 'triggered_by_contact']
+        read_only_fields = ['triggered_at', 'workspace', 'triggered_by_contact', 'attributes']
     
     def get_attributes(self, obj):
         attributes = EventAttributeSerializer(obj.attributes.all(), many=True)

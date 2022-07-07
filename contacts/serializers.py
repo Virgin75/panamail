@@ -1,3 +1,4 @@
+from asyncio import events
 from django.contrib.auth.hashers import make_password
 from django.core.paginator import Paginator
 from collections import OrderedDict
@@ -5,6 +6,7 @@ from .encryption_util import encrypt, decrypt
 from rest_framework import serializers
 from .utils import retrieve_segment_members
 from users.serializers import UserSerializer
+from trackerapi.serializers import EventSerializer, PageSerializer
 from .models import (
     Contact,
     CustomField,
@@ -44,16 +46,29 @@ class CustomFieldOfContactSerializer(serializers.ModelSerializer):
 
 class ContactSerializer(serializers.ModelSerializer):
     custom_fields = serializers.SerializerMethodField()
+    events = serializers.SerializerMethodField()
+    pages = serializers.SerializerMethodField()
 
     class Meta:
         model = Contact
         fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'custom_fields', 'events', 'pages']
     
     def get_custom_fields(self, obj):
         c_fields = CustomFieldOfContact.objects.filter(contact=obj.id)
         key_value = CustomFieldOfContactSerializer(c_fields, many=True)
         return key_value.data
+    
+    def get_events(self, contact):
+        events = contact.workspace.events.all()
+        key_value = EventSerializer(events, many=True)
+        return key_value.data
+
+    def get_pages(self, contact):
+        pages = contact.workspace.pages.all()
+        key_value = PageSerializer(pages, many=True)
+        return key_value.data
+
 
 class ContactSerializerAPI(serializers.ModelSerializer):
 
