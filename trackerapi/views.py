@@ -24,6 +24,7 @@ from .permissions import(
     IsWorkspaceAdmin,
     IsTokenValid,
     IsTrackedContactInWorkspace,
+    IsWorkspaceAdminObj,
 )
 
 
@@ -35,6 +36,12 @@ class ListCreateTrackerAPIKey(generics.ListCreateAPIView):
         workspace_id = self.request.GET.get('workspace_id')
         workspace = get_object_or_404(Workspace, id=workspace_id)
         return TrackerAPIKey.objects.filter(workspace=workspace)
+
+class DeleteTrackerAPIKey(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated, IsWorkspaceAdminObj]
+    serializer_class = TrackerAPIKeySerializer
+    lookup_field = 'pk'
+    queryset = TrackerAPIKey.objects.all()
     
     
 class TrackPages(generics.CreateAPIView):
@@ -98,13 +105,6 @@ class TrackEvents(generics.CreateAPIView):
                     type='date',
                     value_date=value
                 )
-            elif isinstance(value, str):
-                ea = EventAttribute(
-                    event=event,
-                    key=key,
-                    type='str',
-                    value_str=value
-                )
             elif isinstance(value, bool):
                 ea = EventAttribute(
                     event=event,
@@ -119,6 +119,13 @@ class TrackEvents(generics.CreateAPIView):
                     type='int',
                     value_int=value
                 )
+            else:
+                ea = EventAttribute(
+                    event=event,
+                    key=key,
+                    type='str',
+                    value_str=value
+                )
             ea.save()
             
         headers = self.get_success_headers(serializer.data)
@@ -126,3 +133,13 @@ class TrackEvents(generics.CreateAPIView):
 
     def perform_create(self, serializer, workspace, contact):
         return serializer.save(workspace=workspace, triggered_by_contact=contact)
+
+class ListEvents(generics.ListAPIView):
+    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
+    serializer_class = EventSerializer
+    pagination_class = x20ResultsPerPage
+
+    def get_queryset(self):
+        workspace_id = self.request.GET.get('workspace_id')
+        workspace = get_object_or_404(Workspace, id=workspace_id)
+        return Event.objects.filter(workspace=workspace)

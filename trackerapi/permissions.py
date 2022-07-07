@@ -24,6 +24,21 @@ class IsWorkspaceAdmin(permissions.BasePermission):
         )
         return True if membership.exists() else False
 
+class IsWorkspaceAdminObj(permissions.BasePermission):
+    """
+    Permission with following rules : 
+    --> Only an admin of the workspace can go any further
+    """
+    message = 'You are not allowed to perform this action...'
+
+    def has_object_permission(self, request, view, obj):
+        workspace = obj.workspace
+        membership = workspace.members.through.objects.filter(
+            user=request.user,
+            rights='AD'
+        )
+        return True if membership.exists() else False
+
 class IsTokenValid(permissions.BasePermission):
     """
     Permission with following rules : 
