@@ -55,6 +55,13 @@ class ContactSerializer(serializers.ModelSerializer):
         key_value = CustomFieldOfContactSerializer(c_fields, many=True)
         return key_value.data
 
+class ContactSerializerAPI(serializers.ModelSerializer):
+
+    class Meta:
+        model = Contact
+        fields = '__all__'
+        read_only_fields = ['workspace', 'created_at', 'updated_at']
+
 
 class ListSerializer(serializers.ModelSerializer):
     class Meta:

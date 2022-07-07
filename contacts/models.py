@@ -40,6 +40,7 @@ class CSVImportHistory(models.Model):
 class CustomField(models.Model):
     class Meta:
         verbose_name_plural = "Custom Fields"
+        unique_together = ('name', 'workspace',)
 
     FIELD_TYPES = [
         ('str', 'String'),
