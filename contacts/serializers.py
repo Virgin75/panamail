@@ -1,4 +1,4 @@
-from asyncio import events
+from django.core.paginator import Paginator
 from django.contrib.auth.hashers import make_password
 from django.core.paginator import Paginator
 from collections import OrderedDict
@@ -18,6 +18,8 @@ from .models import (
     Segment,
     Condition,
 )
+from .paginations import x20ResultsPerPage
+
 
 class CustomFieldSerializer(serializers.ModelSerializer):
     class Meta:
@@ -81,11 +83,11 @@ class ContactSerializerAPI(serializers.ModelSerializer):
 class ListSerializer(serializers.ModelSerializer):
     class Meta:
         model = List
-        fields = '__all__' 
+        fields = ['id', 'name', 'description', 'workspace', 'updated_at', 'created_at']
         read_only_fields = ['created_at', 'updated_at']
 
 class ContactInListSerializerRead(serializers.ModelSerializer):
-    contact = ContactSerializer(many=False, read_only=True)
+    contact = ContactSerializerAPI(many=False, read_only=True)
 
     class Meta:
         model = ContactInList
@@ -134,29 +136,36 @@ class DatabaseRuleSerializer(serializers.ModelSerializer):
 
 
 class SegmentSerializer(serializers.ModelSerializer):
+    count = serializers.SerializerMethodField()
+
     class Meta:
         model = Segment
-        fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at']
+        fields = ['id', 'name', 'count', 'description', 'operator', 'created_at', 'updated_at', 'workspace']
+        read_only_fields = ['created_at', 'updated_at', 'count']
+    
+    def get_count(self, obj):
+        return obj.members.all().count()
 
 
 class SegmentWithMembersSerializer(serializers.ModelSerializer):
-    members = serializers.SerializerMethodField()
+    paginated_members = serializers.SerializerMethodField()
 
     class Meta:
         model = Segment
-        fields = '__all__'
+        fields = ['id', 'name', 'description', 'paginated_members', 'operator', 'created_at', 'updated_at', 'workspace']
         read_only_fields = ['created_at', 'updated_at']
     
-    def get_members(self, obj):
-        contacts = retrieve_segment_members(obj.id)
-        paginator = Paginator(contacts, 20) #20 per page
-        page = self.context['request'].query_params.get('p') or 1
-        members_in_segment = paginator.page(page)
-
-        key_value = ContactSerializer(members_in_segment, many=True)
-        return {'nb_members': contacts.count(), 'contacts': key_value.data}
-
+    def get_paginated_members(self, obj):
+        p = Paginator(obj.members.all(), 20)
+        members = p.page(self.context['request'].GET.get('p'))
+        print(members.object_list)
+        serializer = ContactSerializerAPI(members.object_list, many=True)
+        return {
+            'total_pages': p.num_pages,
+            'has_next_page': members.has_next(), 
+            'members': serializer.data
+            }
+    
 
 class ConditionSerializer(serializers.ModelSerializer):
     class Meta:

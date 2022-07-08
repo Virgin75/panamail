@@ -140,6 +140,7 @@ class Segment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
+    members = models.ManyToManyField(Contact, through='ContactInSegment', related_name='segments')
     operator = models.CharField(max_length=3, choices=OPERATORS, default='AND')
     workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='segments')
     created_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -148,6 +149,18 @@ class Segment(models.Model):
     def __str__(self):
         return self.name
 
+class ContactInSegment(models.Model):
+    class Meta:
+        verbose_name_plural = "Relations Contact <> Segment"
+        unique_together = ('contact', 'segment',)
+
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
+    segment = models.ForeignKey(Segment, on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return f"{self.contact} is in segment {self.segment}"
 
 class Condition(models.Model):
     class Meta:

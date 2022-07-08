@@ -99,8 +99,7 @@ def retrieve_segment_members(segment_id):
             reduce(operator.or_, filter_queries),
             workspace=segment.workspace,
         ).distinct()
-    print(queryset)
-    return queryset    
+    return queryset
 
 
 '''

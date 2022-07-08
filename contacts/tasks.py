@@ -7,9 +7,9 @@ from celery.utils.log import get_task_logger
 from django.shortcuts import get_object_or_404
 from pyparsing import line
 from panamail import celery_app
-from .models import Contact, CustomField, List, CustomFieldOfContact, CSVImportHistory, ContactInList, DatabaseToSync, DatabaseRule
+from .models import Contact, ContactInSegment, CustomField, List, CustomFieldOfContact, CSVImportHistory, ContactInList, DatabaseToSync, DatabaseRule, Segment
 from users.models import Workspace
-
+from .utils import retrieve_segment_members
 from .models import Contact, CustomField, CustomFieldOfContact
 
 
@@ -121,3 +121,28 @@ def do_csv_import(contacts, column_mapping, workspace_id, update_existing, list_
 
     logger.info(f"{created_contacts} contacts were created and {updated_contacts} were updated.")
     return
+
+
+@celery_app.task(name="compute_segment_members")
+def compute_segment_members(segment_id):
+    """Get all Segment members given a Segment id. Triggered when a segment is created or updated"""
+    segment = Segment.objects.get(id=segment_id)
+    if segment.conditions.all().count() == 0:
+        return
+
+    new_contacts = retrieve_segment_members(segment_id) #QuerySet
+    logger.info(f'NEW CONTACT: {new_contacts}')
+
+    # Check which Contacts do not match anymore with the new Segment conditions
+    contacts_to_delete = ContactInSegment.objects.filter(
+        segment=segment
+    ).exclude(contact_id__in=new_contacts.values_list('id', flat=True))
+    logger.info(f'NEW CONTACT: {contacts_to_delete}')
+    contacts_to_delete.delete()
+  
+    # Add new Contacts to the Segment
+    for contact in new_contacts:
+        cs, created = ContactInSegment.objects.get_or_create(
+            contact=contact,
+            segment=segment
+        )

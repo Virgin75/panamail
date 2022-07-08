@@ -6,6 +6,7 @@ from .models import (
     List,
     ContactInList,
     Segment,
+    ContactInSegment,
     Condition,
     CSVImportHistory,
     DatabaseToSync,
@@ -22,3 +23,4 @@ admin.site.register(Condition)
 admin.site.register(CSVImportHistory)
 admin.site.register(DatabaseToSync)
 admin.site.register(DatabaseRule)
+admin.site.register(ContactInSegment)
