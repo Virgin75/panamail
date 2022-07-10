@@ -62,12 +62,12 @@ class ContactSerializer(serializers.ModelSerializer):
         return key_value.data
     
     def get_events(self, contact):
-        events = contact.workspace.events.all()
+        events = contact.events.all()
         key_value = EventSerializer(events, many=True)
         return key_value.data
 
     def get_pages(self, contact):
-        pages = contact.workspace.pages.all()
+        pages = contact.pages.all()
         key_value = PageSerializer(pages, many=True)
         return key_value.data
 
@@ -158,7 +158,6 @@ class SegmentWithMembersSerializer(serializers.ModelSerializer):
     def get_paginated_members(self, obj):
         p = Paginator(obj.members.all(), 20)
         members = p.page(self.context['request'].GET.get('p'))
-        print(members.object_list)
         serializer = ContactSerializerAPI(members.object_list, many=True)
         return {
             'total_pages': p.num_pages,

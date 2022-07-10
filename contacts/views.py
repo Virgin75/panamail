@@ -94,6 +94,8 @@ class SetCustomFieldOfContact(APIView):
                     cf.value_date = value
                 
                 cf.save()
+                contact = get_object_or_404(Contact, id=contact_pk)
+                contact.save()
             #Else, create it
             except CustomFieldOfContact.DoesNotExist:
                 field = get_object_or_404(CustomField, id=int(field_to_update))
@@ -125,6 +127,7 @@ class SetCustomFieldOfContact(APIView):
                     )
 
                 cf.save()
+                contact.save()
 
         return Response({'status': 'All fields were updated successfully.'})
 

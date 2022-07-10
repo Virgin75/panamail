@@ -4,7 +4,7 @@ from functools import reduce
 from django.db.models import Q
 from .models import Segment, Condition, Contact, CustomField, CustomFieldOfContact
 
-def retrieve_segment_members(segment_id):
+def retrieve_segment_members(segment_id, *args):
     #Mapping check_types <> django Q filters
     mapping = {
         'IS': ('iexact', True),
@@ -33,10 +33,14 @@ def retrieve_segment_members(segment_id):
     #Get all conditions of the segment
     segment = Segment.objects.select_related('workspace').get(id=segment_id)
     conditions = segment.conditions.all()
+    if not conditions:
+        return False
     filter_queries = []
 
     for condition in conditions:
+
         if condition.condition_type == 'EMAIL':
+
             key = f"email__{mapping[condition.check_type][0]}"
             value = condition.input_value
             if mapping[condition.check_type][1]:
@@ -45,27 +49,43 @@ def retrieve_segment_members(segment_id):
                 filter_queries.append(~Q(**{ key: value}))
 
         if condition.condition_type == 'CUSTOM FIELD':
+            
+            custom_field_id = condition.custom_field.id
+            key2 = "custom_fields__custom_field_id__exact"
+ 
             if condition.custom_field.type == 'str':
                 key = f"custom_fields__value_str__{mapping[condition.check_type][0]}"
                 value = condition.input_value
                 if mapping[condition.check_type][1]:
-                    filter_queries.append(Q(**{ key: value}))
+                    filter_queries.append(
+                        Q(**{ key: value}) & Q(**{ key2: custom_field_id})
+                    )
                 else:
-                    filter_queries.append(~Q(**{ key: value}))
+                    filter_queries.append(
+                        ~Q(**{ key: value}) & Q(**{ key2: custom_field_id})
+                    )
             if condition.custom_field.type == 'int':
                 key = f"custom_fields__value_int__{mapping[condition.check_type][0]}"
                 value = condition.input_value
                 if mapping[condition.check_type][1]:
-                    filter_queries.append(Q(**{ key: value}))
+                    filter_queries.append(
+                        Q(**{ key: value}) & Q(**{ key2: custom_field_id})
+                    )
                 else:
-                    filter_queries.append(~Q(**{ key: value}))
+                    filter_queries.append(
+                        ~Q(**{ key: value}) & Q(**{ key2: custom_field_id})
+                    )
             if condition.custom_field.type == 'bool':
                 key = f"custom_fields__value_bool__{mapping[condition.check_type][0]}"
                 value = condition.input_value
                 if mapping[condition.check_type][1]:
-                    filter_queries.append(Q(**{ key: value}))
+                    filter_queries.append(
+                        Q(**{ key: value}) & Q(**{ key2: custom_field_id})
+                    )
                 else:
-                    filter_queries.append(~Q(**{ key: value}))
+                    filter_queries.append(
+                        ~Q(**{ key: value}) & Q(**{ key2: custom_field_id})
+                    )
             if condition.custom_field.type == 'date':
                 key = f"custom_fields__value_date__{mapping[condition.check_type][0]}"
                 value = condition.input_value
@@ -75,18 +95,23 @@ def retrieve_segment_members(segment_id):
                     value = (condition.input_value, condition.input_value2)
 
                 if mapping[condition.check_type][1]:
-                    filter_queries.append(Q(**{ key: value}))
+                    filter_queries.append(
+                        Q(**{ key: value}) & Q(**{ key2: custom_field_id})
+                    )
                 else:
-                    filter_queries.append(~Q(**{ key: value}))
+                    filter_queries.append(
+                        ~Q(**{ key: value}) & Q(**{ key2: custom_field_id})
+                    )
         
         if condition.condition_type == 'LIST':
+
             key = f"lists__id__{mapping[condition.check_type][0]}"
             value = condition.input_value
             if mapping[condition.check_type][1]:
                 filter_queries.append(Q(**{ key: value}))
             else:
                 filter_queries.append(~Q(**{ key: value}))
-
+    print(segment)
 
     #Generate final Contacts queryset
     if segment.operator == 'AND':
@@ -99,7 +124,7 @@ def retrieve_segment_members(segment_id):
             reduce(operator.or_, filter_queries),
             workspace=segment.workspace,
         ).distinct()
-    return queryset
+    return queryset if not 'contact_id' in args else queryset.filter(id=args['contact_id']).exists()
 
 
 '''

@@ -126,18 +126,17 @@ def do_csv_import(contacts, column_mapping, workspace_id, update_existing, list_
 @celery_app.task(name="compute_segment_members")
 def compute_segment_members(segment_id):
     """Get all Segment members given a Segment id. Triggered when a segment is created or updated"""
+    
     segment = Segment.objects.get(id=segment_id)
     if segment.conditions.all().count() == 0:
         return
 
     new_contacts = retrieve_segment_members(segment_id) #QuerySet
-    logger.info(f'NEW CONTACT: {new_contacts}')
 
     # Check which Contacts do not match anymore with the new Segment conditions
     contacts_to_delete = ContactInSegment.objects.filter(
         segment=segment
     ).exclude(contact_id__in=new_contacts.values_list('id', flat=True))
-    logger.info(f'NEW CONTACT: {contacts_to_delete}')
     contacts_to_delete.delete()
   
     # Add new Contacts to the Segment
@@ -146,3 +145,28 @@ def compute_segment_members(segment_id):
             contact=contact,
             segment=segment
         )
+
+@celery_app.task(name="compute_contact_segments")
+def compute_contact_segments(contact_id):
+    """Update a Contact Segments membership. Triggered when any Contact info is updated (field change, new event, new page, new list membership...)"""
+   
+    contact = Contact.objects.get(id=contact_id)
+    workspace = contact.workspace
+    segments = workspace.segments.all()
+    for segment in segments:
+        is_a_match = retrieve_segment_members(segment.id, contact_id)
+        if is_a_match:
+            cs = ContactInSegment.objects.get_or_create(
+                contact=contact,
+                segment=segment
+            )
+        else:
+            try:
+                cs = ContactInSegment.objects.get(
+                    contact=contact,
+                    segment=segment
+                )
+                cs.delete()
+            except ContactInSegment.DoesNotExist:
+                #Contact was not member of the Segment. Continue
+                pass
