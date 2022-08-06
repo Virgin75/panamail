@@ -2,17 +2,6 @@ version: "3.3"
 
 services:
 
-  nginx:
-    build: ./nginx
-    ports:
-      - 80:80
-    volumes:
-      - ./nginx/nginx.key:/app/nginx/nginx.key
-      - ./nginx/nginx-certificate.crt:/app/nginx/nginx-certificate.crt
-    depends_on:
-      - web
-    restart: "on-failure"
-
   web:
     build: .
     command: >
@@ -24,8 +13,8 @@ services:
              python manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/app
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     restart: "on-failure"
   
   redis:

@@ -8,7 +8,7 @@ class SenderDomain(models.Model):
         ('WAITING', 'Domain nameis  yet to be verified'),
     ]
 
-    domain_name = models.CharField(max_length=75)
+    domain_name = models.CharField(max_length=75, unique=True)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     status = models.CharField(max_length=10, choices=DOMAIN_STATUS, default='WAITING')
 

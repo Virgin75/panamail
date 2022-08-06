@@ -18,6 +18,7 @@ Triggered on :
 def update_contacts_segment(sender, instance, **kwargs):
     compute_contact_segments.delay(instance.id)
 
+#ajouter un post_delete
 '''
 Signal to update a Contact memberships in Segments
 Triggered on :
