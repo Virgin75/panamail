@@ -16,7 +16,7 @@ class CheckFKOwnership(permissions.BasePermission):
         if request.method == 'GET':
             return True
             
-        if request.method == 'POST':
+        if request.method in ('POST', 'PATCH', 'PUT'):
             workspace_id = request.POST.get('workspace', None)
             segment_id = request.POST.get('to_segment', None)
             list_id = request.POST.get('to_list', None)
