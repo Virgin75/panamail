@@ -10,6 +10,7 @@ class Campaign(models.Model):
     CAMPAIGN_STATUS = [
         ('DRAFT', "Campaign is in Draft"),
         ('TO VALIDATE', 'Campaign to validate'),
+        ('SENDING', 'Campaign being sent'),
         ('SCHEDULED', 'Campaign scheduled'),
         ('SENT', 'Campaign sent'),
     ]

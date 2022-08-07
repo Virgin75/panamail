@@ -10,6 +10,7 @@ from emails.permissions import (
 from users.models import Workspace
 from .models import Campaign
 from .serializers import CampaignSerializer
+from .tasks import send_campaign
 
 class ListCreateCampaign(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace, CheckFKOwnership]
@@ -29,7 +30,7 @@ class RetrieveUpdateDestroyCampaign(generics.RetrieveUpdateDestroyAPIView):
 
 
 class SendCampaign(views.APIView):
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, pk, format=None):
         user = request.user
@@ -52,5 +53,14 @@ class SendCampaign(views.APIView):
             return Response({'error':'Please select a list or segment'})
 
         # Create the async task to send the campaign at the right time
-        #TODO
+        if campaign.scheduled_at is None:
+            send_campaign.delay(campaign.id)
+            campaign.status = 'SENDING'
+            campaign.save()
+        else:
+            send_date = campaign.scheduled_at
+            send_campaign.apply_async((campaign.id,), eta=send_date)
+            campaign.status = 'SCHEDULED'
+            campaign.save()
+
         return Response({'status':'Your camapign was scheduled successfully.'})
