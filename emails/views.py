@@ -38,7 +38,6 @@ class ListCreateEmail(generics.ListCreateAPIView):
     def get_queryset(self):
         workspace_id = self.request.GET.get('workspace_id')
         workspace = get_object_or_404(Workspace, id=workspace_id)
-
         return Email.objects.filter(workspace=workspace)
 
 
@@ -72,6 +71,7 @@ class ListCreateSenderDomain(generics.ListCreateAPIView):
             )
             if response['DkimAttributes']['Status'] == 'SUCCESS':
                 domain.status = 'VERIFIED'
+                domain.save()
             
         return domains
     
@@ -107,7 +107,7 @@ class ListCreateSenderDomain(generics.ListCreateAPIView):
             }
         )
         #Create a periodic task to check everyday if the CNAME is present on DNS record
-        schedule = IntervalSchedule(every=12, period=IntervalSchedule.SECONDS)
+        schedule = IntervalSchedule(every=1, period=IntervalSchedule.DAYS)
         schedule.save()
         task = PeriodicTask(
             interval=schedule, 
@@ -136,8 +136,22 @@ class ListCreateSenderEmail(generics.ListCreateAPIView):
     def get_queryset(self):
         workspace_id = self.request.GET.get('workspace_id')
         workspace = get_object_or_404(Workspace, id=workspace_id)
-
         return SenderEmail.objects.filter(workspace=workspace)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # Check if domain name has been validated before creating emails
+        domain = serializer.validated_data['domain']
+        created_email = serializer.validated_data['email_address']
+        sd = get_object_or_404(SenderDomain, id=domain.id)
+        print(sd, sd.domain_name, created_email)
+        if sd.status == 'WAITING' or (sd.domain_name not in created_email):
+            return Response({'error':'Domain not verified yet.'})
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 
 class RetrieveUpdateDestroySenderEmail(generics.RetrieveUpdateDestroyAPIView):

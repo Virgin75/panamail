@@ -13,7 +13,7 @@ class SenderDomain(models.Model):
     status = models.CharField(max_length=10, choices=DOMAIN_STATUS, default='WAITING')
 
     def __str__(self):
-        return f'Domain name: {self.domain_name}'
+        return f'Domain name: {self.domain_name} ({self.status})'
 
 
 class SenderEmail(models.Model):

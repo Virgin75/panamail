@@ -29,4 +29,5 @@ def check_domain_status(domain_name):
     if response['DkimAttributes']['Status'] == 'SUCCESS':
         sd = get_object_or_404(SenderDomain, domain_name=domain_name)
         sd.status = 'VERIFIED'
+        sd.save()
     return

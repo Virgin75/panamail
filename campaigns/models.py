@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from users.models import Workspace
 from contacts.models import List, Segment
-from emails.models import Email, SenderDomain, SenderEmail
+from emails.models import Email, SenderEmail
 
 
 
