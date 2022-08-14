@@ -8,10 +8,13 @@ from django.conf import settings
 
 logger = get_task_logger(__name__)
 
+#TODO: DO NOT SEND TO UNSUBS
+#TODO: Define ConfigSet to track Emails actions
+# Pass as tags in email : contact_id, campaign_id, email_id, workspace_id
+
 def send_email_ses(**kwargs):
     client = boto3.client('ses',region_name=settings.AWS_REGION_NAME)
     #Send the email.
-    print(f"{kwargs['sender_name']} <{kwargs['sender_email']}>")
     try:
         response = client.send_email(
             Destination={
@@ -35,7 +38,21 @@ def send_email_ses(**kwargs):
                     'Data': kwargs['subject'],
                 },
             },
-            Source=f"{kwargs['sender_name']} <{kwargs['sender_email']}>"
+            Source=f"{kwargs['sender_name']} <{kwargs['sender_email']}>",
+            EmailTags=[
+                {
+                    'workspace_id': 'string',
+                    kwargs['workspace_id']: 'string'
+                },
+                {
+                    'contact_id': 'string',
+                    kwargs['contact_id']: 'string'
+                },
+                {
+                    'campaign_id': 'string',
+                    kwargs['campaign_id']: 'string'
+                },
+            ],
         )
     except ClientError as e:
         print(e.response['Error']['Message'])
@@ -44,43 +61,54 @@ def send_email_ses(**kwargs):
         print(response['MessageId'])
 
 
-@celery_app.task(name="send_campaign")
-def send_campaign(campaign_id):
-    """Send a campaign immediately"""
-    campaign = Campaign.objects.get(id=campaign_id)
+def prep_email_sending(recipient, campaign):
     sender_email = campaign.sender.email_address
     sender_name = campaign.sender.name
     reply_to = campaign.sender.reply_to
     subject = campaign.subject
     content = campaign.email_model.raw_html
 
-    # Iterate over all recipients
+    recipient_cf = recipient.custom_fields.select_related('custom_field').all()
+    recipeint_fields = {}
+    for cf in recipient_cf:
+        recipeint_fields[cf.custom_field.name] = cf.get_value()
+        recipeint_fields['email'] = recipient.email
+        recipeint_fields['created_at'] = recipient.created_at
+        #Replace the varibales in the email content
+        message = Template(content)
+        content = message.render(contact=recipeint_fields)
+
+        #Send the email
+        send_email_ses(
+            recipient=recipient.email, 
+            subject=subject, 
+            body=content, 
+            sender_name=sender_name, 
+            sender_email=sender_email,
+            workspace_id=campaign.workspace.id,
+            contact_id=recipient.id,
+            campaign_id=campaign.id
+        )
+        print(content)
+
+
+@celery_app.task(name="send_campaign")
+def send_campaign(campaign_id):
+    """Send a campaign immediately"""
+    campaign = Campaign.objects.get(id=campaign_id)
+
+    # Iterate over all recipients, prep email and send it!
     if campaign.to_type == 'LIST':
         list = campaign.to_list
         recipients = list.contacts.all()
         for recipient in recipients:
-            email = recipient.email
-            message = Template(content)
-            print(message.render(email=email))
+            prep_email_sending(recipient, campaign)
 
     if campaign.to_type == 'SEGMENT':
         segment = campaign.to_segment
         recipients = segment.members.all()
         for recipient in recipients:
-            recipient_cf = recipient.custom_fields.select_related('custom_field').all()
-            recipeint_fields = {}
-            for cf in recipient_cf:
-                recipeint_fields[cf.custom_field.name] = cf.get_value()
-            recipeint_fields['email'] = recipient.email
-            recipeint_fields['created_at'] = recipient.created_at
-
-            message = Template(content)
-            content = message.render(contact=recipeint_fields)
-
-            #Send the email
-            send_email_ses(recipient=recipient.email, subject=subject, body=content, sender_name=sender_name, sender_email=sender_email)
-            print(recipeint_fields)
-            print(content)
+            prep_email_sending(recipient, campaign)
             
 
     campaign.status = 'SENT'
