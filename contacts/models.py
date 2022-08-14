@@ -72,6 +72,16 @@ class CustomFieldOfContact(models.Model):
 
     def __str__(self):
         return f'{self.contact} <> {self.custom_field}'
+    
+    def get_value(self):
+        if self.value_int is not None:
+            return self.value_int
+        if self.value_str is not None:
+            return self.value_str
+        if self.value_date is not None:
+            return self.value_date
+        if self.value_bool is not None:
+            return self.value_bool
 
 
 class List(models.Model):

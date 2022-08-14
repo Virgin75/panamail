@@ -69,6 +69,7 @@ class ListCreateSenderDomain(generics.ListCreateAPIView):
             response = aws_client.get_email_identity(
                 EmailIdentity=domain.domain_name
             )
+            print(response)
             if response['DkimAttributes']['Status'] == 'SUCCESS':
                 domain.status = 'VERIFIED'
                 domain.save()
@@ -106,6 +107,13 @@ class ListCreateSenderDomain(generics.ListCreateAPIView):
                 'NextSigningKeyLength': 'RSA_2048_BIT'
             }
         )
+        #Set custom MAIL FROM in AWS
+        resp = aws_client.put_email_identity_mail_from_attributes(
+            EmailIdentity=serializer.validated_data['domain_name'],
+            MailFromDomain=f"emails.{serializer.validated_data['domain_name']}",
+            BehaviorOnMxFailure='USE_DEFAULT_VALUE'
+        )       
+
         #Create a periodic task to check everyday if the CNAME is present on DNS record
         schedule = IntervalSchedule(every=1, period=IntervalSchedule.DAYS)
         schedule.save()
@@ -119,7 +127,7 @@ class ListCreateSenderDomain(generics.ListCreateAPIView):
 
         self.perform_create(serializer, task)
         headers = self.get_success_headers(serializer.data)
-        return Response(response, status=status.HTTP_201_CREATED, headers=headers)
+        return Response({'create_domain_identity': response, 'create_mail_from': resp}, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class RetrieveUpdateDestroySenderDomain(generics.RetrieveUpdateDestroyAPIView):
