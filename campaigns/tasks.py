@@ -17,6 +17,7 @@ def send_email_ses(**kwargs):
     #Send the email.
     try:
         response = client.send_email(
+            ConfigurationSetName="test",
             Destination={
                 'ToAddresses': [
                     kwargs['recipient'],

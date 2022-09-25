@@ -31,6 +31,10 @@ ENCRYPT_KEY = b'ueQCMphGjpDRPId5yJeuic7k__kIY_gjW0cOmhxQ5BI='
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:8000"
+]
 
 
 # Application definition
@@ -48,9 +52,11 @@ INSTALLED_APPS = [
     'emails',
     'campaigns',
     'trackerapi',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
