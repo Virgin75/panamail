@@ -6,7 +6,6 @@ from .models import (
     Company, 
     Workspace, 
     MemberOfWorkspace,
-    SMTPProvider,
     Invitation
     )
 from .forms import SignupForm, EditForm
@@ -30,7 +29,6 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ('email',)
     ordering = ('email',)
 
-admin.site.register(SMTPProvider)
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Plan)
 admin.site.register(Company)

@@ -5,7 +5,6 @@ from .models import (
     Invitation, 
     Workspace, 
     MemberOfWorkspace,
-    SMTPProvider
 )
 
 class UserSerializer(serializers.ModelSerializer):
@@ -46,12 +45,3 @@ class MemberOfWorkspaceSerializer(serializers.ModelSerializer):
         model = MemberOfWorkspace
         fields = '__all__' 
         read_only_fields = ['created_at', 'updated_at']
-
-class SMTPProviderSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SMTPProvider
-        fields = '__all__' 
-        extra_kwargs = {
-            'auth_id': {'write_only': True},
-            'auth_password': {'write_only': True},
-        }

@@ -62,7 +62,6 @@ def send_email_ses(**kwargs):
 
 
 def prep_email_sending(recipient, campaign):
-    print(recipient.created_at)
     sender_email = campaign.sender.email_address
     sender_name = campaign.sender.name
     reply_to = campaign.sender.reply_to
@@ -81,16 +80,18 @@ def prep_email_sending(recipient, campaign):
     content = message.render(contact=recipient_fields)
 
     #Send the email
-    send_email_ses(
-        recipient=recipient.email, 
-        subject=subject, 
-        body=content, 
-        sender_name=sender_name, 
-        sender_email=sender_email,
-        workspace_id=campaign.workspace.id,
-        contact_id=recipient.id,
-        campaign_id=campaign.id
-    )
+    smtp = campaign.workspace.company.smtp
+    if smtp == 'SES':
+        send_email_ses(
+            recipient=recipient.email, 
+            subject=subject, 
+            body=content, 
+            sender_name=sender_name, 
+            sender_email=sender_email,
+            workspace_id=campaign.workspace.id,
+            contact_id=recipient.id,
+            campaign_id=campaign.id
+        )
     print(content)
 
 

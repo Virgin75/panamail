@@ -7,11 +7,6 @@ from django.utils.translation import gettext_lazy as _
 from .managers import CustomUserManager
 
 
-class SMTPProvider(models.Model):
-    #TODO: Probably will need more field depending on the provider
-    name = models.CharField(max_length=40)
-    auth_id = models.CharField(max_length=40)
-    auth_password = models.CharField(max_length=40)
 
 class Plan(models.Model):
     name = models.CharField(max_length=20)
@@ -30,13 +25,18 @@ class Company(models.Model):
         ('YE', 'yearly'),
     ]
 
+    SMTP_CHOICES = [
+        ('SES', "Amazon Web Service SES"),
+        ('SMTP', "Custom SMTP Provider")
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     plan_name = models.ForeignKey(Plan, on_delete=models.CASCADE, blank=True, null=True)
     billing = models.CharField(max_length=2, choices=BILLING_CHOICES, default='MO')
     website = models.URLField(max_length=200, null=True, blank=True)
     address = models.CharField(max_length=125, null=True, blank=True)
-    smtp = models.ForeignKey(SMTPProvider, on_delete=models.CASCADE, null=True, blank=True)
+    smtp = models.CharField(max_length=4, choices=SMTP_CHOICES, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 

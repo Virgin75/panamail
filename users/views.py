@@ -11,7 +11,6 @@ from .serializers import (
     InvitationSerializer, 
     WorkspaceSerializer,
     MemberOfWorkspaceSerializer,
-    SMTPProviderSerializer
 )
 from .models import (
     CustomUser, 
@@ -19,7 +18,6 @@ from .models import (
     Company, 
     Workspace, 
     MemberOfWorkspace, 
-    SMTPProvider
 )
 from .permissions import (
     IsCompanyAdmin,
@@ -100,6 +98,7 @@ class RetrieveUpdateDestroyCompanyView(generics.RetrieveUpdateDestroyAPIView):
         def get_object(self):
             user = self.request.user
             company = user.company
+            print(user)
             return company
 
 
@@ -209,8 +208,3 @@ class RetrieveUpdateDestroyMemberOfWorkspaceView(generics.RetrieveUpdateDestroyA
     serializer_class = MemberOfWorkspaceSerializer
     lookup_field = 'pk'
     queryset = MemberOfWorkspace.objects.all()
-
-class ListSMTPProviderView(generics.ListAPIView):
-    permission_classes = [IsAuthenticated, IsCompanyAdmin]
-    serializer_class = SMTPProviderSerializer
-    queryset = SMTPProvider.objects.all()
