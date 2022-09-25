@@ -39,18 +39,18 @@ def send_email_ses(**kwargs):
                 },
             },
             Source=f"{kwargs['sender_name']} <{kwargs['sender_email']}>",
-            EmailTags=[
+            Tags=[
                 {
-                    'workspace_id': 'string',
-                    kwargs['workspace_id']: 'string'
+                    'Name': 'workspace_id',
+                    'Value': str(kwargs['workspace_id'])
                 },
                 {
-                    'contact_id': 'string',
-                    kwargs['contact_id']: 'string'
+                    'Name': 'contact_id',
+                    'Value': str(kwargs['contact_id'])
                 },
                 {
-                    'campaign_id': 'string',
-                    kwargs['campaign_id']: 'string'
+                    'Name': 'campaign_id',
+                    'Value': str(kwargs['campaign_id'])
                 },
             ],
         )
@@ -62,6 +62,7 @@ def send_email_ses(**kwargs):
 
 
 def prep_email_sending(recipient, campaign):
+    print(recipient.created_at)
     sender_email = campaign.sender.email_address
     sender_name = campaign.sender.name
     reply_to = campaign.sender.reply_to
@@ -69,27 +70,28 @@ def prep_email_sending(recipient, campaign):
     content = campaign.email_model.raw_html
 
     recipient_cf = recipient.custom_fields.select_related('custom_field').all()
-    recipeint_fields = {}
+    recipient_fields = {}
     for cf in recipient_cf:
-        recipeint_fields[cf.custom_field.name] = cf.get_value()
-        recipeint_fields['email'] = recipient.email
-        recipeint_fields['created_at'] = recipient.created_at
-        #Replace the varibales in the email content
-        message = Template(content)
-        content = message.render(contact=recipeint_fields)
+        recipient_fields[cf.custom_field.name] = cf.get_value()
+    recipient_fields['email'] = recipient.email
+    recipient_fields['created_at'] = recipient.created_at
 
-        #Send the email
-        send_email_ses(
-            recipient=recipient.email, 
-            subject=subject, 
-            body=content, 
-            sender_name=sender_name, 
-            sender_email=sender_email,
-            workspace_id=campaign.workspace.id,
-            contact_id=recipient.id,
-            campaign_id=campaign.id
-        )
-        print(content)
+    #Replace the varibales in the email content
+    message = Template(content)
+    content = message.render(contact=recipient_fields)
+
+    #Send the email
+    send_email_ses(
+        recipient=recipient.email, 
+        subject=subject, 
+        body=content, 
+        sender_name=sender_name, 
+        sender_email=sender_email,
+        workspace_id=campaign.workspace.id,
+        contact_id=recipient.id,
+        campaign_id=campaign.id
+    )
+    print(content)
 
 
 @celery_app.task(name="send_campaign")
