@@ -150,10 +150,11 @@ REST_FRAMEWORK = {
     ]
 }
 
+SECONDS = 3600
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=3600)
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=SECONDS)
 }
-
+CORS_ALLOW_CREDENTIALS = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.CustomUser'
 

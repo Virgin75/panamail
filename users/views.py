@@ -1,9 +1,12 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, views
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
+from django.conf import settings
 
 from .serializers import (
     UserSerializer, 
@@ -26,6 +29,23 @@ from .permissions import (
     CheckMemberOfWorkspaceRights,
     CheckMemberOfWorkspaceObjRights
 )
+
+class SignInView(views.APIView):
+    permission_classes = []
+
+    def post(self, request, format=None):
+        email = request.data['email']
+        password = request.data['password']
+        user = authenticate(username=email, password=password)
+        refresh = RefreshToken.for_user(user)
+        headers = {
+            'Set-Cookie': f'access={refresh.access_token}; Max-Age={settings.SECONDS}; SameSite=None; Secure; Path=/;',
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Set-Cookie, Content-Type, Content-Length, Authorization, Accept,X-Requested-With"',
+        }
+        response = Response({'access': str(refresh.access_token)}, headers=headers)
+        return response
 
 class SignUpView(generics.CreateAPIView):
     permission_classes = []
