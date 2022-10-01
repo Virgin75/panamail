@@ -44,7 +44,18 @@ class SignInView(views.APIView):
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Headers': 'Set-Cookie, Content-Type, Content-Length, Authorization, Accept,X-Requested-With"',
         }
-        response = Response({'access': str(refresh.access_token)}, headers=headers)
+        #Check if user has done the onboarding (set up a Company & Workspace)
+        print(user)
+        onboarding_done = True
+        if user.company is None or not user.member.all().exists():
+            onboarding_done = False
+        response = Response(
+            {
+                'access': str(refresh.access_token), 
+                'user': {'onboarding_done': onboarding_done, 'email': user.email, 'first_name': user.first_name, 'last_name':user.last_name}
+            }, 
+            headers=headers
+        )
         return response
 
 class SignUpView(generics.CreateAPIView):
@@ -56,15 +67,20 @@ class SignUpView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         
         user = get_user_model().objects.create_user(
-                    email=serializer.data['email'],
+                    email=serializer.validated_data['email'],
                     password=request.data['password']
         )
+        user.first_name = serializer.validated_data['first_name']
+        user.last_name = serializer.validated_data['last_name']
+        user.save()
+        user = authenticate(username=serializer.validated_data['email'], password=request.data['password'])
+        refresh = RefreshToken.for_user(user)
         # If there was an invite token in URL we automatically 
         # add the user to the right Company or Workspace.
         invitation_token = request.query_params.get('invitation_token')
         if invitation_token:
             invit_obj = Invitation.objects.get(id=invitation_token)
-            if invit_obj.invited_user == serializer.data['email']:
+            if invit_obj.invited_user == serializer.validated_data['email']:
                 if invit_obj.type == 'CO':
                     user.company = invit_obj.to_company
                     user.company_role = invit_obj.role
@@ -78,9 +94,14 @@ class SignUpView(generics.CreateAPIView):
                     )
                     new_member_of_workspace.save()
                     invit_obj.delete()
-            
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, headers=headers)
+          
+        headers = {
+            'Set-Cookie': f'access={refresh.access_token}; Max-Age={settings.SECONDS}; SameSite=None; Secure; Path=/;',
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Set-Cookie, Content-Type, Content-Length, Authorization, Accept,X-Requested-With"',
+        }
+        return Response({'access': str(refresh.access_token), 'user': serializer.data}, headers=headers)
 
 class RetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
