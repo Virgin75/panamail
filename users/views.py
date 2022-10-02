@@ -38,12 +38,6 @@ class SignInView(views.APIView):
         password = request.data['password']
         user = authenticate(username=email, password=password)
         refresh = RefreshToken.for_user(user)
-        headers = {
-            'Set-Cookie': f'access={refresh.access_token}; Max-Age={settings.SECONDS}; SameSite=None; Secure; Path=/;',
-            'Access-Control-Allow-Credentials': 'true',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Set-Cookie, Content-Type, Content-Length, Authorization, Accept,X-Requested-With"',
-        }
         #Check if user has done the onboarding (set up a Company & Workspace)
         print(user)
         onboarding_done = True
@@ -53,8 +47,7 @@ class SignInView(views.APIView):
             {
                 'access': str(refresh.access_token), 
                 'user': {'onboarding_done': onboarding_done, 'email': user.email, 'first_name': user.first_name, 'last_name':user.last_name}
-            }, 
-            headers=headers
+            }
         )
         return response
 
@@ -95,13 +88,7 @@ class SignUpView(generics.CreateAPIView):
                     new_member_of_workspace.save()
                     invit_obj.delete()
           
-        headers = {
-            'Set-Cookie': f'access={refresh.access_token}; Max-Age={settings.SECONDS}; SameSite=None; Secure; Path=/;',
-            'Access-Control-Allow-Credentials': 'true',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Set-Cookie, Content-Type, Content-Length, Authorization, Accept,X-Requested-With"',
-        }
-        return Response({'access': str(refresh.access_token), 'user': serializer.data}, headers=headers)
+        return Response({'access': str(refresh.access_token), 'user': serializer.data}, headers=self.get_success_headers(serializer.data))
 
 class RetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
