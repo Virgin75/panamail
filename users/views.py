@@ -38,15 +38,26 @@ class SignInView(views.APIView):
         password = request.data['password']
         user = authenticate(username=email, password=password)
         refresh = RefreshToken.for_user(user)
-        #Check if user has done the onboarding (set up a Company & Workspace)
+        # Check if user has done the onboarding (set up a Company & Workspace)
         print(user)
         onboarding_done = True
+        workspace_ids = []
+        company_id = ''
+        if user.company is not None:
+            company_id = user.company.id
+        if user.workspaces.all().exists():
+            workspace_ids = user.workspaces.values_list('id', 'name').all()
+            print(workspace_ids)
+
         if user.company is None or not user.member.all().exists():
             onboarding_done = False
         response = Response(
             {
                 'access': str(refresh.access_token), 
-                'user': {'onboarding_done': onboarding_done, 'email': user.email, 'first_name': user.first_name, 'last_name':user.last_name}
+                'user': {'onboarding_done': onboarding_done, 'email': user.email, 'first_name': user.first_name, 'last_name':user.last_name},
+                'company_id': company_id,
+                'workspaces_id': workspace_ids,
+
             }
         )
         return response
