@@ -14,8 +14,8 @@ class IsMemberOfWorkspace(permissions.BasePermission):
             workspace_id = request.GET.get('workspace_id')
             
         if request.method == 'POST':
-            workspace_id = request.POST['workspace']
-        
+            workspace_id = request.data.get('workspace')
+
         workspace = get_object_or_404(Workspace, id=workspace_id)
         membership = workspace.members.filter(id=request.user.id)
 

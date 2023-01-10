@@ -33,6 +33,10 @@ class SenderEmail(models.Model):
         return f'{self.name} <{self.email_address}>'
 
 
+class Tag(models.Model):
+    name = models.CharField(max_length=50)
+
+
 class Email(models.Model):
     EMAIL_TYPES = [
     ('DESIGN', "Drag'n'drop designed email"),
@@ -44,8 +48,11 @@ class Email(models.Model):
     type = models.CharField(max_length=6, choices=EMAIL_TYPES)
     raw_html = models.TextField()
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='emails')
+    tags = models.ManyToManyField(Tag)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
         return f'{self.name} - Workspace: {self.workspace}'
+
+

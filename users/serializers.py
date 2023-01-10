@@ -35,10 +35,15 @@ class InvitationSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'id']
 
 class WorkspaceSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
     class Meta:
         model = Workspace
         fields = '__all__' 
         read_only_fields = ['created_at', 'updated_at', 'id', 'company']
+
+    def get_role(self, obj):
+        inst = obj.members.through.objects.get(user=self.context['request'].user, workspace=obj)
+        return inst.rights
 
 class MemberOfWorkspaceSerializer(serializers.ModelSerializer):
     class Meta:

@@ -5,11 +5,13 @@ from botocore.config import Config
 
 from django_celery_beat.models import PeriodicTask, IntervalSchedule
 
-from rest_framework import generics, status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import generics, status, filters
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from django.contrib.auth import get_user_model
+from contacts.paginations import x20ResultsPerPage, x10ResultsPerPage
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 
@@ -34,6 +36,9 @@ from .permissions import (
 class ListCreateEmail(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
     serializer_class = EmailSerializer
+    pagination_class = x10ResultsPerPage
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', ]
 
     def get_queryset(self):
         workspace_id = self.request.GET.get('workspace_id')

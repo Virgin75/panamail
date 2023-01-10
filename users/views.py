@@ -38,6 +38,13 @@ class SignInView(views.APIView):
         password = request.data['password']
         user = authenticate(username=email, password=password)
         refresh = RefreshToken.for_user(user)
+        headers = {
+            'Set-Cookie': f'access={refresh.access_token}; Max-Age={settings.SECONDS}; SameSite=None; Secure; Path=/;',
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Set-Cookie, Content-Type, Content-Length, Authorization, Accept,X-Requested-With"',
+        }
+
         # Check if user has done the onboarding (set up a Company & Workspace)
         print(user)
         onboarding_done = True
@@ -58,7 +65,7 @@ class SignInView(views.APIView):
                 'company_id': company_id,
                 'workspaces_id': workspace_ids,
 
-            }
+            }, headers=headers
         )
         return response
 
@@ -79,6 +86,13 @@ class SignUpView(generics.CreateAPIView):
         user.save()
         user = authenticate(username=serializer.validated_data['email'], password=request.data['password'])
         refresh = RefreshToken.for_user(user)
+        headers = {
+            'Set-Cookie': f'access={refresh.access_token}; Max-Age={settings.SECONDS}; SameSite=None; Secure; Path=/;',
+            'Access-Control-Allow-Credentials': 'true',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Set-Cookie, Content-Type, Content-Length, Authorization, Accept,X-Requested-With"',
+        }
+
         # If there was an invite token in URL we automatically 
         # add the user to the right Company or Workspace.
         invitation_token = request.query_params.get('invitation_token')
@@ -99,7 +113,7 @@ class SignUpView(generics.CreateAPIView):
                     new_member_of_workspace.save()
                     invit_obj.delete()
           
-        return Response({'access': str(refresh.access_token), 'user': serializer.data}, headers=self.get_success_headers(serializer.data))
+        return Response({'access': str(refresh.access_token), 'user': serializer.data}, headers=headers)
 
 class RetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
