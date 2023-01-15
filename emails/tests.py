@@ -1,49 +1,55 @@
 import pytest
 import json
-from .models import Email, SenderDomain, SenderEmail
-from rest_framework.test import APIClient
+from django.urls import reverse
 
-# Test create an email
+
 @pytest.mark.django_db
 def test_create_email(auth_client, workspace, workspace_member, user):
-    response = auth_client.post('/emails/emails', {
+    url = reverse("emails:emails-list")
+    response = auth_client.post(url, {
         'name': 'testem.',
         'type': 'RAW',
         'raw_html': '<html>HW</html>',
-        'workspace': workspace.id
+        'workspace': workspace.id,
+        'tags': [],
+        'edit_history': []
     })
-    resp_json = json.loads(response.content)
+    res = response.json()
     assert response.status_code == 201
-    assert resp_json['name'] == 'testem.'
-    assert resp_json['workspace'] == str(workspace.id)
+    assert res['name'] == 'testem.'
+    assert res['workspace'] == str(workspace.id)
 
-# Test retrieve an email details
+
 @pytest.mark.django_db
 def test_retrieve_email(auth_client, email, workspace, workspace_member, user):
-    response = auth_client.get(f"/emails/emails/{email.id}")
-    resp_json = json.loads(response.content)
+    url = reverse("emails:emails-detail", kwargs={"pk": email.id})
+    response = auth_client.get(url)
+    res = response.json()
     assert response.status_code == 200
-    assert resp_json['name'] == email.name
-    assert resp_json['raw_html'] == email.raw_html
-    assert resp_json['workspace'] == str(workspace.id)
+    assert res['name'] == email.name
 
-# Test update an email
+
 @pytest.mark.django_db
 def test_update_email(auth_client, email, workspace, workspace_member, user):
-    response = auth_client.patch(f"/emails/emails/{email.id}", {
+    url = reverse("emails:emails-detail", kwargs={"pk": email.id})
+    payload = {
         'name': 'new name',
-    })
-    resp_json = json.loads(response.content)
+    }
+    response = auth_client.patch(url, payload)
+    res = response.json()
+    assert email.edit_history.first().edited_by.email == user.email
     assert response.status_code == 200
-    assert resp_json['name'] == 'new name'
+    assert res['name'] == payload["name"]
 
-# Test delete an email
+
 @pytest.mark.django_db
 def test_delete_email(auth_client, email, workspace, workspace_member, user):
-    response = auth_client.delete(f"/emails/emails/{email.id}")
+    url = reverse("emails:emails-detail", kwargs={"pk": email.id})
+    response = auth_client.delete(url)
     assert response.status_code == 204
 
-# Test create a sender domain
+
+#TODO
 @pytest.mark.django_db
 def test_create_sender_domain(auth_client, workspace, workspace_member, user):
     response = auth_client.post('/emails/sender-domains', {

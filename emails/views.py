@@ -11,6 +11,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from django.contrib.auth import get_user_model
+
+from commons.views import WorkspaceViewset
 from contacts.paginations import x20ResultsPerPage, x10ResultsPerPage
 from django.shortcuts import get_object_or_404
 from django.conf import settings
@@ -32,6 +34,13 @@ from .permissions import (
     IsMemberOfWorkspace,
     IsMemberOfWorkspaceObj
 )
+
+
+class EmailViewset(WorkspaceViewset):
+    base_model_class = Email
+    serializer_class = EmailSerializer
+    select_related_fields = ("workspace",)
+
 
 class ListCreateEmail(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
