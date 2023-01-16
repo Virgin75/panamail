@@ -18,7 +18,7 @@ class SenderDomain(models.Model):
         return f'Domain name: {self.domain_name} ({self.status})'
 
 
-class SenderEmail(models.Model):
+class SenderEmail(BaseWorkspace):
     SENDER_STATUS = [
         ('VERIFIED', 'Email address can be used as sender'),
         ('WAITING', 'Email address needs yet to be verified'),
@@ -27,7 +27,6 @@ class SenderEmail(models.Model):
     email_address = models.EmailField(max_length=100)
     name = models.CharField(max_length=50)
     reply_to = models.EmailField(max_length=100)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='senders')
     status = models.CharField(max_length=10, choices=SENDER_STATUS, default='WAITING')
     domain = models.ForeignKey(SenderDomain, on_delete=models.CASCADE, null=True)
 

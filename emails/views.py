@@ -5,15 +5,12 @@ from botocore.config import Config
 
 from django_celery_beat.models import PeriodicTask, IntervalSchedule
 
-from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, filters
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from django.contrib.auth import get_user_model
-
 from commons.views import WorkspaceViewset
-from contacts.paginations import x20ResultsPerPage, x10ResultsPerPage
+from contacts.paginations import x10ResultsPerPage
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 
@@ -37,9 +34,14 @@ from .permissions import (
 
 
 class EmailViewset(WorkspaceViewset):
+    """Perform all CRUD actions on Emails objects."""
+
     base_model_class = Email
     serializer_class = EmailSerializer
-    select_related_fields = ("workspace",)
+    prefetch_related_fields = ("tags", "edit_history")
+    search_fields = ("name",)
+    ordering_fields = ("name", "created_at")
+    filterset_fields = ("type", "tags")
 
 
 class ListCreateEmail(generics.ListCreateAPIView):

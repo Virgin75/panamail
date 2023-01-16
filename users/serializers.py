@@ -22,6 +22,16 @@ class UserSerializer(serializers.ModelSerializer):
             'password': {'write_only': True}
         }
 
+
+class MinimalUserSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'email', 'first_name', 'last_name', 'created_at']
+        read_only_fields = ['id', 'email', 'first_name', 'last_name', 'created_at']
+
+
+
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = Company

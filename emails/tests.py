@@ -1,22 +1,29 @@
 import pytest
 import json
 from django.urls import reverse
+from emails.models import Email, Tag
+from users.serializers import MinimalUserSerializer
 
 
 @pytest.mark.django_db
 def test_create_email(auth_client, workspace, workspace_member, user):
     url = reverse("emails:emails-list")
+    a = Tag.objects.create(name="a", workspace=workspace)
+    b = Tag.objects.create(name="b", workspace=workspace)
+
     response = auth_client.post(url, {
         'name': 'testem.',
         'type': 'RAW',
         'raw_html': '<html>HW</html>',
         'workspace': workspace.id,
-        'tags': [],
-        'edit_history': []
+        'tags': [a.id, b.id],
     })
+
     res = response.json()
     assert response.status_code == 201
     assert res['name'] == 'testem.'
+    assert res["created_by"] == MinimalUserSerializer(user).data
+    assert len(res['tags']) == 2
     assert res['workspace'] == str(workspace.id)
 
 

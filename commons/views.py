@@ -1,3 +1,4 @@
+from django.utils.decorators import method_decorator
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters, exceptions
 from rest_framework.permissions import IsAuthenticated
@@ -5,14 +6,27 @@ from rest_framework.permissions import IsAuthenticated
 from commons.paginations import x10ResultsPerPage
 from commons.models import History
 from users.models import Workspace
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 
+params = [
+    OpenApiParameter(
+        name='workspace_id',
+        location=OpenApiParameter.QUERY,
+        description='Used to filter based on a Workspace belonging.',
+        required=True,
+        type=str
+    ),
+]
+
+
+@method_decorator(name="list", decorator=extend_schema(parameters=params))
 class WorkspaceViewset(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
     filter_backends = (filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend, )
     pagination_class = x10ResultsPerPage
     base_model_class = None
-    select_related_fields = None
+    select_related_fields = ("workspace",)
     prefetch_related_fields = ("edit_history",)
 
     def get_queryset(self):
@@ -41,7 +55,7 @@ class WorkspaceViewset(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         workspace_obj = Workspace.objects.get(id=serializer.validated_data.get("workspace").id)
         if workspace_obj.members.filter(id=self.request.user.id).exists():
-            serializer.save()
+            serializer.save(created_by=self.request.user)
         else:
             raise exceptions.PermissionDenied()
 

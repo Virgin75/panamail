@@ -1,13 +1,9 @@
-
-
-django-cors-headers==3.13.0
 aiohttp==3.8.1
 aiosignal==1.2.0
 amqp==5.0.9
 asgiref==3.4.1
 async-timeout==4.0.2
 attrs==21.4.0
-backports.zoneinfo;python_version<"3.9"
 billiard==3.6.4.0
 boto3==1.24.46
 botocore==1.27.46
@@ -27,10 +23,12 @@ defusedxml==0.7.1
 Deprecated==1.2.13
 Django==4.0
 django-celery-beat==2.3.0
+django-cors-headers==3.13.0
 django-filter==21.1
 django-timezone-field==5.0
 djangorestframework==3.13.1
 djangorestframework-simplejwt==5.0.0
+drf-spectacular==0.25.1
 ffmpeg-python==0.2.0
 filelock==3.4.2
 fonttools==4.29.1
@@ -43,6 +41,7 @@ inflection==0.3.1
 iniconfig==1.1.1
 Jinja2==3.1.2
 jmespath==1.0.1
+jsonschema==4.17.3
 kiwisolver==1.3.2
 kombu==5.2.3
 lazy-object-proxy==1.7.1
@@ -61,6 +60,7 @@ py==1.11.0
 pycparser==2.21
 PyJWT==2.3.0
 pyparsing==3.0.6
+pyrsistent==0.19.3
 pytest==6.2.5
 pytest-assert-utils==0.3.1
 pytest-common-subject==1.0.6
@@ -73,6 +73,7 @@ python-dateutil==2.8.2
 python-dotenv==0.19.2
 python-magic==0.4.25
 pytz==2021.3
+PyYAML==6.0
 redis==4.1.2
 s3transfer==0.6.0
 six==1.16.0
@@ -81,7 +82,9 @@ thumbnail==1.5
 tinycss2==1.1.1
 toml==0.10.2
 tzdata==2022.1
+uritemplate==4.1.1
 urllib3==1.26.11
+vine==5.0.0
 Wand==0.6.7
 wcwidth==0.2.5
 webencodings==0.5.1
@@ -89,3 +92,4 @@ wrapt==1.13.3
 wslink==1.3.3
 xvfbwrapper==0.2.9
 yarl==1.7.2
+zipp==3.11.0
