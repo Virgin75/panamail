@@ -1,26 +1,16 @@
+from django.conf import settings
+from django.contrib.auth import authenticate
+from django.contrib.auth import get_user_model
 from rest_framework import generics, status, views
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from django.contrib.auth import get_user_model
-from django.contrib.auth import authenticate
-from django.shortcuts import get_object_or_404
-from django.conf import settings
-
-from .serializers import (
-    UserSerializer, 
-    CompanySerializer, 
-    InvitationSerializer, 
-    WorkspaceSerializer,
-    MemberOfWorkspaceSerializer,
-)
 from .models import (
-    CustomUser, 
-    Invitation, 
-    Company, 
-    Workspace, 
-    MemberOfWorkspace, 
+    CustomUser,
+    Invitation,
+    Workspace,
+    MemberOfWorkspace,
 )
 from .permissions import (
     IsCompanyAdmin,
@@ -29,6 +19,13 @@ from .permissions import (
     CheckMemberOfWorkspaceRights,
     CheckMemberOfWorkspaceObjRights
 )
+from .serializers import (
+    UserSerializer,
+    InvitationSerializer,
+    WorkspaceSerializer,
+    MemberOfWorkspaceSerializer,
+)
+
 
 class SignInView(views.APIView):
     permission_classes = []
@@ -46,28 +43,28 @@ class SignInView(views.APIView):
         }
 
         # Check if user has done the onboarding (set up a Company & Workspace)
-        print(user)
         onboarding_done = True
         workspace_ids = []
-        company_id = ''
-        if user.company is not None:
-            company_id = user.company.id
         if user.workspaces.all().exists():
             workspace_ids = user.workspaces.values_list('id', 'name').all()
-            print(workspace_ids)
 
-        if user.company is None or not user.member.all().exists():
+        if not user.member.all().exists():
             onboarding_done = False
         response = Response(
             {
-                'access': str(refresh.access_token), 
-                'user': {'onboarding_done': onboarding_done, 'email': user.email, 'first_name': user.first_name, 'last_name':user.last_name},
-                'company_id': company_id,
+                'access': str(refresh.access_token),
+                'user': {
+                    'onboarding_done': onboarding_done,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name
+                },
                 'workspaces_id': workspace_ids,
 
             }, headers=headers
         )
         return response
+
 
 class SignUpView(generics.CreateAPIView):
     permission_classes = []
@@ -99,21 +96,16 @@ class SignUpView(generics.CreateAPIView):
         if invitation_token:
             invit_obj = Invitation.objects.get(id=invitation_token)
             if invit_obj.invited_user == serializer.validated_data['email']:
-                if invit_obj.type == 'CO':
-                    user.company = invit_obj.to_company
-                    user.company_role = invit_obj.role
-                    user.save()
-                    invit_obj.delete()
-                if invit_obj.type == 'WO':
-                    new_member_of_workspace = MemberOfWorkspace(
-                        user=user,
-                        workspace=Workspace.objects.get(id=invit_obj.to_workspace),
-                        rights=invit_obj.role
-                    )
-                    new_member_of_workspace.save()
-                    invit_obj.delete()
+                new_member = MemberOfWorkspace(
+                    user=user,
+                    workspace=Workspace.objects.get(id=invit_obj.to_workspace),
+                    rights=invit_obj.role
+                )
+                new_member.save()
+                invit_obj.delete()
           
         return Response({'access': str(refresh.access_token), 'user': serializer.data}, headers=headers)
+
 
 class RetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
@@ -123,59 +115,22 @@ class RetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         return CustomUser.objects.get(id=self.request.user.id)
 
 
-class CreateCompanyView(generics.CreateAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = CompanySerializer
-
-    def perform_create(self, serializer):
-        return serializer.save()
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        company = self.perform_create(serializer)
-    
-        #After creation of the company we set the user in this company
-        user = CustomUser.objects.get(id=request.user.id)
-        user.company = company
-        user.company_role = 'AD' #Admin
-        user.save()
-
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-class RetrieveUpdateDestroyCompanyView(generics.RetrieveUpdateDestroyAPIView):
-        permission_classes = [IsAuthenticated, IsCompanyAdmin]
-        serializer_class = CompanySerializer
-
-        def get_object(self):
-            user = self.request.user
-            company = user.company
-            print(user)
-            return company
-
-
 class CreateInvitationView(generics.CreateAPIView):
-    permission_classes = [IsAuthenticated, IsCompanyAdmin]
+    permission_classes = [IsAuthenticated]
     serializer_class = InvitationSerializer
     queryset = Invitation.objects.none()
 
     def create(self, request, *args, **kwargs):
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_workspaces = Workspace.objects.filter(members=self.request.user)
+        if serializer.validated_data['to_workspace'] not in user_workspaces:
+            return Response('You can only invite users to YOUR own workspaces.')
 
-            if serializer.validated_data['type'] == 'CO': #Company type
-                if str(self.request.user.company.id) != str(serializer.validated_data['to_company'].id):
-                    return Response('You can only invite users to YOUR company.')
-        
-            if serializer.validated_data['type'] == 'WO': #Workspace type
-                user_workspaces = MemberOfWorkspace.objects.filter(user=self.request.user)
-                if serializer.validated_data['to_workspace'] in user_workspaces:
-                    return Response('You can only invite users to YOUR workspaces.')
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 class ListCompanyMembers(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsCompanyAdmin]

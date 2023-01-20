@@ -1,11 +1,12 @@
 import uuid
+
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from smtp.models import Smtp
 from .managers import CustomUserManager
-
 
 
 class Plan(models.Model):
@@ -16,41 +17,10 @@ class Plan(models.Model):
     def __str__(self):
         return self.name
 
-class Company(models.Model):
-    class Meta:
-        verbose_name_plural = "Companies"
-
-    BILLING_CHOICES = [
-        ('MO', 'monthly'),
-        ('YE', 'yearly'),
-    ]
-
-    SMTP_CHOICES = [
-        ('SES', "Amazon Web Service SES"),
-        ('SMTP', "Custom SMTP Provider")
-    ]
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=100)
-    plan_name = models.ForeignKey(Plan, on_delete=models.CASCADE, blank=True, null=True)
-    billing = models.CharField(max_length=2, choices=BILLING_CHOICES, default='MO')
-    website = models.URLField(max_length=200, null=True, blank=True)
-    address = models.CharField(max_length=125, null=True, blank=True)
-    smtp = models.CharField(max_length=4, choices=SMTP_CHOICES, null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
-
-    def __str__(self):
-        return f'{self.name} ({self.plan_name})'
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name_plural = "Users"
-
-    COMPANY_ROLES = [
-        ('AD', 'Admin'),
-        ('ME', 'Member'),
-    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(_('email address'), unique=True)
@@ -59,8 +29,6 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(default=timezone.now)
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, related_name="users")
-    company_role = models.CharField(max_length=2, choices=COMPANY_ROLES, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
@@ -77,35 +45,31 @@ class Workspace(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     logo = models.ImageField(upload_to='uploads', null=True, blank=True)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE)
     address = models.CharField(max_length=125, null=True, blank=True)
     auto_utm_field = models.BooleanField(default=True)
     members = models.ManyToManyField(CustomUser, through='MemberOfWorkspace', related_name='workspaces')
+    plan_name = models.ForeignKey(Plan, on_delete=models.CASCADE, blank=True, null=True)
+    smtp = models.ForeignKey(Smtp, on_delete=models.SET_NULL, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
-        return f'{self.name} ({self.company})'
+        return f'{self.name}'
 
 
 class Invitation(models.Model):
-    INVITE_TYPE = [
-        ('WO', 'Workspace'),
-        ('CO', 'Company'),
-    ]
+
     INVITE_ROLE = [
         ('AD', 'Admin'),
         ('ME', 'Member'),
+        ('RO', 'Read-only'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     invited_user = models.EmailField(max_length=100)
-    to_company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True)
-    to_workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, null=True, blank=True)
-    type = models.CharField(max_length=2, choices=INVITE_TYPE)
+    to_workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     role = models.CharField(max_length=2, choices=INVITE_ROLE)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-
 
 
 class MemberOfWorkspace(models.Model):
@@ -114,8 +78,9 @@ class MemberOfWorkspace(models.Model):
         unique_together = ('user', 'workspace',)
 
     RIGHT_CHOICES = [
-        ('AD','Admin'),
-        ('ME','Member')
+        ('AD', 'Admin'),
+        ('ME', 'Member'),
+        ('RO', 'Read-only'),
     ]
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='member')
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)

@@ -1,7 +1,7 @@
 import pytest
-import json
 from django.urls import reverse
-from emails.models import Email, Tag
+
+from emails.models import Tag, SenderDomain, SenderEmail
 from users.serializers import MinimalUserSerializer
 
 
@@ -56,80 +56,117 @@ def test_delete_email(auth_client, email, workspace, workspace_member, user):
     assert response.status_code == 204
 
 
-#TODO
 @pytest.mark.django_db
 def test_create_sender_domain(auth_client, workspace, workspace_member, user):
-    response = auth_client.post('/emails/sender-domains', {
-        'domain_name': 'panam.io',
+    url = reverse("emails:sender-domains-list")
+
+    response = auth_client.post(url, {
+        'name': 'mysite.com',
         'workspace': workspace.id
     })
-    resp_json = json.loads(response.content)
+
+    res = response.json()
     assert response.status_code == 201
-    assert resp_json['domain_name'] == 'panam.io'
-    assert resp_json['workspace'] == str(workspace.id)
+    assert res['name'] == 'mysite.com'
+    assert res['status'] == 'NONE'
+    assert res['workspace'] == str(workspace.id)
 
-# Test retrieve a sender domain
-@pytest.mark.django_db
-def test_retrieve_sender_domain(auth_client, sender_domain, workspace, workspace_member, user):
-    response = auth_client.get(f"/emails/sender-domains/{sender_domain.id}")
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['domain_name'] == sender_domain.domain_name
-    assert resp_json['workspace'] == str(workspace.id)
 
-# Test update a sender domain
 @pytest.mark.django_db
-def test_update_sender_domain(auth_client, sender_domain, workspace, workspace_member, user):
-    response = auth_client.patch(f"/emails/sender-domains/{sender_domain.id}", {
-        'domain_name': 'new name dn',
+def test_list_sender_domains(auth_client, workspace, workspace_member, user):
+    [SenderDomain.objects.create(name=f"test{i}", workspace=workspace) for i, _ in enumerate(range(2))]
+    url = reverse("emails:sender-domains-list")
+    response = auth_client.get(url, {
+        'workspace_id': workspace.id,
     })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['domain_name'] == 'new name dn'
 
-# Test delete a sender domain
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 2
+
+
 @pytest.mark.django_db
-def test_delete_sender_domain(auth_client, sender_domain, workspace, workspace_member, user):
-    response = auth_client.delete(f"/emails/sender-domains/{sender_domain.id}")
+def test_update_sender_domain(auth_client, email, workspace, workspace_member, user):
+    s = [SenderDomain.objects.create(name=f"test{i}", workspace=workspace) for i, _ in enumerate(range(2))]
+    url = reverse("emails:sender-domains-detail", kwargs={"pk": s[0].id})
+    payload = {
+        'name': 'new name',
+    }
+    response = auth_client.patch(url, payload)
+    res = response.json()
+    assert s[0].edit_history.first().edited_by.email == user.email
+    assert response.status_code == 200
+    assert res['name'] == payload["name"]
+
+
+@pytest.mark.django_db
+def test_delete_sender_domain(auth_client, email, workspace, workspace_member, user):
+    s = [SenderDomain.objects.create(name=f"test{i}", workspace=workspace) for i, _ in enumerate(range(2))]
+    url = reverse("emails:sender-domains-detail", kwargs={"pk": s[0].id})
+    response = auth_client.delete(url)
     assert response.status_code == 204
 
 
-# Test create a sender email
 @pytest.mark.django_db
-def test_create_sender_email(auth_client, sender_domain, workspace, workspace_member, user):
-    response = auth_client.post('/emails/sender-emails', {
-        'name': 'Contact',
-        'email_address': 'contact@pana.io',
-        'reply_to': 'contact@pana.io',
-        'domain': sender_domain.id,
+def test_create_sender_email(auth_client, workspace, workspace_member, user):
+    s = SenderDomain.objects.create(name="test", workspace=workspace)
+    url = reverse("emails:sender-emails-list")
+
+    response = auth_client.post(url, {
+        'email_address': 'contact@mysite.com',
+        "name": "Contact",
+        "reply_to": "no-reply@mysite.com",
+        "domain": s.id,
         'workspace': workspace.id
     })
-    resp_json = json.loads(response.content)
+
+    res = response.json()
     assert response.status_code == 201
-    assert resp_json['email_address'] == 'contact@pana.io'
-    assert resp_json['workspace'] == str(workspace.id)
+    assert res['name'] == 'Contact'
+    assert res['domain']["id"] == s.id
+    assert res['workspace'] == str(workspace.id)
 
-# Test retrieve a sender email
-@pytest.mark.django_db
-def test_retrieve_sender_email(auth_client, sender_email, workspace, workspace_member, user):
-    response = auth_client.get(f"/emails/sender-emails/{sender_email.id}")
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['email_address'] == sender_email.email_address
-    assert resp_json['workspace'] == str(workspace.id)
 
-# Test update a sender email
 @pytest.mark.django_db
-def test_update_sender_email(auth_client, sender_email, workspace, workspace_member, user):
-    response = auth_client.patch(f"/emails/sender-emails/{sender_email.id}", {
-        'reply_to': 'noreply@none.com',
+def test_list_sender_emails(auth_client, workspace, workspace_member, user):
+    s = SenderDomain.objects.create(name="test", workspace=workspace)
+    SenderEmail.objects.create(
+        workspace=workspace, name="Contact", email_address="a@a.fr", reply_to="b@a.fr", domain=s
+    )
+    url = reverse("emails:sender-emails-list")
+    response = auth_client.get(url, {
+        'workspace_id': workspace.id,
     })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['reply_to'] == 'noreply@none.com'
 
-# Test delete a sender email
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 1
+
+
 @pytest.mark.django_db
-def test_delete_sender_email(auth_client, sender_email, workspace, workspace_member, user):
-    response = auth_client.delete(f"/emails/sender-emails/{sender_email.id}")
+def test_update_sender_email(auth_client, email, workspace, workspace_member, user):
+    s = SenderDomain.objects.create(name="test", workspace=workspace)
+    e = SenderEmail.objects.create(
+        workspace=workspace, name="Contact", email_address="a@a.fr", reply_to="b@a.fr", domain=s
+    )
+    url = reverse("emails:sender-emails-detail", kwargs={"pk": e.id})
+    payload = {
+        'name': 'new name',
+    }
+    response = auth_client.patch(url, payload)
+    res = response.json()
+    assert e.edit_history.first().edited_by.email == user.email
+    assert response.status_code == 200
+    assert res['name'] == payload["name"]
+
+
+@pytest.mark.django_db
+def test_delete_sender_email(auth_client, email, workspace, workspace_member, user):
+    s = SenderDomain.objects.create(name="test", workspace=workspace)
+    e = SenderEmail.objects.create(
+        workspace=workspace, name="Contact", email_address="a@a.fr", reply_to="b@a.fr", domain=s
+    )
+    url = reverse("emails:sender-emails-detail", kwargs={"pk": e.id})
+
+    response = auth_client.delete(url)
     assert response.status_code == 204

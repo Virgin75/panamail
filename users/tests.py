@@ -1,9 +1,6 @@
-import pytest
 import json
-from django.contrib.auth import get_user_model
-from .models import Company, Workspace, MemberOfWorkspace, Invitation
-from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import RefreshToken
+
+import pytest
 
 USER_EMAIL = 'virgin225@gmail.com'
 USER_PASSWORD = 'Azerty123$'

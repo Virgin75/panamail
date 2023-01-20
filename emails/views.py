@@ -1,5 +1,5 @@
 from commons.views import WorkspaceViewset
-from emails import serializers, views, models
+from emails import serializers, models
 
 
 class EmailViewset(WorkspaceViewset):
@@ -18,9 +18,18 @@ class SenderDomainViewset(WorkspaceViewset):
 
     base_model_class = models.SenderDomain
     serializer_class = serializers.SenderDomainSerializer
-    prefetch_related_fields = ("edit_history",)
     search_fields = ("name",)
     ordering_fields = ("name", "status")
+    filterset_fields = ("status",)
+
+
+class SenderEmailViewset(WorkspaceViewset):
+    """Perform all CRUD actions on Sender Email objects."""
+
+    base_model_class = models.SenderEmail
+    serializer_class = serializers.SenderEmailSerializer
+    search_fields = ("name", "email_address")
+    ordering_fields = ("name", "status", "email_address", "reply_to")
     filterset_fields = ("status",)
 
 

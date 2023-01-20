@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from commons.models import History
 from users.serializers import MinimalUserSerializer
 
@@ -10,6 +11,11 @@ class HistorySerializer(serializers.ModelSerializer):
         model = History
         fields = '__all__'
         read_only_fields = ['edited_at', 'edited_by']
+
+
+class WksFieldsSerializer(serializers.Serializer):
+    created_by = MinimalUserSerializer(read_only=True)
+    edit_history = HistorySerializer(many=True, read_only=True)
 
 
 class RestrictedPKRelatedField(serializers.PrimaryKeyRelatedField):
