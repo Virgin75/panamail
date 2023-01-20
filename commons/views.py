@@ -22,6 +22,15 @@ params = [
 
 @method_decorator(name="list", decorator=extend_schema(parameters=params))
 class WorkspaceViewset(viewsets.ModelViewSet):
+    """
+    Viewset inherited by most of other views related to a Workspace.
+
+    - Return a queryset of objects matching only the Workspace of request user.
+    - Make sure Pagination is 10 results per page.
+    - Implements default filter backends for ordering, search and filter.
+    - Auto update edit_history table of related objects.
+    """
+
     permission_classes = (IsAuthenticated,)
     filter_backends = (filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend, )
     pagination_class = x10ResultsPerPage

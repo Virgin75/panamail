@@ -1,69 +1,30 @@
-import random
-import json
-import boto3
-from botocore.config import Config
-
-from django_celery_beat.models import PeriodicTask, IntervalSchedule
-
-from rest_framework import generics, status, filters
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-
 from commons.views import WorkspaceViewset
-from contacts.paginations import x10ResultsPerPage
-from django.shortcuts import get_object_or_404
-from django.conf import settings
-
-
-from .serializers import (
-    SenderEmailSerializer, 
-    SenderDomainSerializer, 
-    EmailSerializer, 
-)
-from users.models import Workspace
-from .models import (
-    SenderEmail,
-    SenderDomain,
-    Email
-)
-
-from .permissions import (
-    IsMemberOfWorkspace,
-    IsMemberOfWorkspaceObj
-)
+from emails import serializers, views, models
 
 
 class EmailViewset(WorkspaceViewset):
     """Perform all CRUD actions on Emails objects."""
 
-    base_model_class = Email
-    serializer_class = EmailSerializer
+    base_model_class = models.Email
+    serializer_class = serializers.EmailSerializer
     prefetch_related_fields = ("tags", "edit_history")
     search_fields = ("name",)
     ordering_fields = ("name", "created_at")
     filterset_fields = ("type", "tags")
 
 
-class ListCreateEmail(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
-    serializer_class = EmailSerializer
-    pagination_class = x10ResultsPerPage
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['name', ]
+class SenderDomainViewset(WorkspaceViewset):
+    """Perform all CRUD actions on Sender Domains objects."""
 
-    def get_queryset(self):
-        workspace_id = self.request.GET.get('workspace_id')
-        workspace = get_object_or_404(Workspace, id=workspace_id)
-        return Email.objects.filter(workspace=workspace)
+    base_model_class = models.SenderDomain
+    serializer_class = serializers.SenderDomainSerializer
+    prefetch_related_fields = ("edit_history",)
+    search_fields = ("name",)
+    ordering_fields = ("name", "status")
+    filterset_fields = ("status",)
 
 
-class RetrieveUpdateDestroyEmail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Email.objects.all()
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
-    serializer_class = EmailSerializer
-    lookup_field = 'pk'
-
-
+"""
 class ListCreateSenderDomain(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
     serializer_class = SenderDomainSerializer
@@ -144,42 +105,4 @@ class ListCreateSenderDomain(generics.ListCreateAPIView):
         self.perform_create(serializer, task)
         headers = self.get_success_headers(serializer.data)
         return Response({'create_domain_identity': response, 'create_mail_from': resp}, status=status.HTTP_201_CREATED, headers=headers)
-
-
-class RetrieveUpdateDestroySenderDomain(generics.RetrieveUpdateDestroyAPIView):
-    queryset = SenderDomain.objects.all()
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
-    serializer_class = SenderDomainSerializer
-    lookup_field = 'pk'
-
-
-class ListCreateSenderEmail(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
-    serializer_class = SenderEmailSerializer
-
-    def get_queryset(self):
-        workspace_id = self.request.GET.get('workspace_id')
-        workspace = get_object_or_404(Workspace, id=workspace_id)
-        return SenderEmail.objects.filter(workspace=workspace)
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        # Check if domain name has been validated before creating emails
-        domain = serializer.validated_data['domain']
-        created_email = serializer.validated_data['email_address']
-        sd = get_object_or_404(SenderDomain, id=domain.id)
-        print(sd, sd.domain_name, created_email)
-        if sd.status == 'WAITING' or (sd.domain_name not in created_email):
-            return Response({'error':'Domain not verified yet.'})
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-
-
-class RetrieveUpdateDestroySenderEmail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = SenderEmail.objects.all()
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
-    serializer_class = SenderEmailSerializer
-    lookup_field = 'pk'
+"""

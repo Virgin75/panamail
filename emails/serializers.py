@@ -1,13 +1,8 @@
 from rest_framework import serializers
-
 from users.serializers import MinimalUserSerializer
-from .models import (
-    SenderEmail,
-    SenderDomain,
-    Email,
-    Tag
-)
+from emails import models
 from commons.serializers import RestrictedPKRelatedField, HistorySerializer
+from commons.models import Tag
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -23,16 +18,16 @@ class EmailSerializer(serializers.ModelSerializer):
     edit_history = HistorySerializer(many=True, read_only=True)
 
     class Meta:
-        model = Email
+        model = models.Email
         fields = '__all__'
         read_only_fields = ('created_at', 'created_by')
 
 
 class SenderDomainSerializer(serializers.ModelSerializer):
     class Meta:
-        model = SenderDomain
+        model = models.SenderDomain
         fields = '__all__' 
-        read_only_fields = ['status']
+        read_only_fields = ('created_at', 'created_by', 'status')
 
 
 class SenderEmailSerializer(serializers.ModelSerializer):

@@ -26,3 +26,9 @@ class BaseWorkspace(models.Model):
 
     class Meta:
         abstract = True
+
+
+class Tag(BaseWorkspace):
+    """Table used in ManyToMany fields when needed to append tags to an object."""
+
+    name = models.CharField(max_length=50)

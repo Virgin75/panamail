@@ -1,21 +1,21 @@
 from django.db import models
 
-from commons.models import BaseWorkspace
+from commons.models import BaseWorkspace, Tag
 from users.models import Workspace
 
 
-class SenderDomain(models.Model):
+class SenderDomain(BaseWorkspace):
     DOMAIN_STATUS = [
+        ('NONE', 'Domain needs validation'),
         ('VERIFIED', 'Domain has been verified'),
         ('WAITING', 'Domain nameis  yet to be verified'),
     ]
 
-    domain_name = models.CharField(max_length=75, unique=True)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
-    status = models.CharField(max_length=10, choices=DOMAIN_STATUS, default='WAITING')
+    name = models.CharField(max_length=75, unique=True)
+    status = models.CharField(max_length=10, choices=DOMAIN_STATUS, default='NONE')
 
     def __str__(self):
-        return f'Domain name: {self.domain_name} ({self.status})'
+        return f'Domain name: {self.name} ({self.status})'
 
 
 class SenderEmail(BaseWorkspace):
@@ -32,10 +32,6 @@ class SenderEmail(BaseWorkspace):
 
     def __str__(self):
         return f'{self.name} <{self.email_address}>'
-
-
-class Tag(BaseWorkspace):
-    name = models.CharField(max_length=50)
 
 
 class Email(BaseWorkspace):
