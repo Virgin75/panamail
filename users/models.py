@@ -9,15 +9,6 @@ from smtp.models import Smtp
 from .managers import CustomUserManager
 
 
-class Plan(models.Model):
-    name = models.CharField(max_length=20)
-    price_ht = models.IntegerField()
-    daily_email_limit = models.IntegerField()
-
-    def __str__(self):
-        return self.name
-
-
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name_plural = "Users"
@@ -47,8 +38,7 @@ class Workspace(models.Model):
     logo = models.ImageField(upload_to='uploads', null=True, blank=True)
     address = models.CharField(max_length=125, null=True, blank=True)
     auto_utm_field = models.BooleanField(default=True)
-    members = models.ManyToManyField(CustomUser, through='MemberOfWorkspace', related_name='workspaces')
-    plan_name = models.ForeignKey(Plan, on_delete=models.CASCADE, blank=True, null=True)
+    members = models.ManyToManyField(CustomUser, through='MemberOfWorkspace', related_name='workspaces', blank=True)
     smtp = models.ForeignKey(Smtp, on_delete=models.SET_NULL, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)
@@ -58,18 +48,23 @@ class Workspace(models.Model):
 
 
 class Invitation(models.Model):
-
     INVITE_ROLE = [
         ('AD', 'Admin'),
         ('ME', 'Member'),
         ('RO', 'Read-only'),
     ]
 
+    INVITE_STATUS = [
+        ('PENDING', 'Invitation not answered.'),
+        ('ACCEPTED', 'Invitation was accepted.'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     invited_user = models.EmailField(max_length=100)
-    to_workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    to_workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="invitations")
     role = models.CharField(max_length=2, choices=INVITE_ROLE)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    status = models.CharField(max_length=10, default="PENDING", choices=INVITE_STATUS)
 
 
 class MemberOfWorkspace(models.Model):

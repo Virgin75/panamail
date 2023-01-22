@@ -1,39 +1,42 @@
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
-from rest_framework import generics, status, views
+from rest_framework import status, viewsets, mixins, exceptions
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_extensions.mixins import NestedViewSetMixin
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import (
-    CustomUser,
-    Invitation,
-    Workspace,
-    MemberOfWorkspace,
-)
-from .permissions import (
-    IsCompanyAdmin,
-    CompanyAdminCreateWorkspace,
-    CheckWorkspaceRights,
-    CheckMemberOfWorkspaceRights,
-    CheckMemberOfWorkspaceObjRights
-)
-from .serializers import (
-    UserSerializer,
-    InvitationSerializer,
-    WorkspaceSerializer,
-    MemberOfWorkspaceSerializer,
-)
+from commons.paginations import x20ResultsPerPage, x10ResultsPerPage
+from users import models, serializers
+from users.models import CustomUser, Workspace
 
 
-class SignInView(views.APIView):
-    permission_classes = []
+class UserViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin,
+                  mixins.DestroyModelMixin):
+    """
+    User viewset to perform following actions :
 
-    def post(self, request, format=None):
-        email = request.data['email']
-        password = request.data['password']
-        user = authenticate(username=email, password=password)
+    - /api/users/<id>: Retrieve, Update, Destroy a user.
+    - /api/users/signup: Create a new user.
+    - /api/users/signin: Authenticate an existing user.
+    """
+
+    serializer_class = serializers.UserSerializer
+    pagination_class = x20ResultsPerPage
+
+    def get_queryset(self):
+        return models.CustomUser.objects.filter(id=self.request.user.id)
+
+    def get_permissions(self):
+        if self.action in ('signin', 'signup'):
+            return []
+        return [IsAuthenticated]
+
+    @action(detail=False, methods=['post'])
+    def signin(self, request):
+        user = authenticate(username=request.data['email'], password=request.data['password'])
         refresh = RefreshToken.for_user(user)
         headers = {
             'Set-Cookie': f'access={refresh.access_token}; Max-Age={settings.SECONDS}; SameSite=None; Secure; Path=/;',
@@ -41,14 +44,12 @@ class SignInView(views.APIView):
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Headers': 'Set-Cookie, Content-Type, Content-Length, Authorization, Accept,X-Requested-With"',
         }
-
-        # Check if user has done the onboarding (set up a Company & Workspace)
-        onboarding_done = True
+        # Check if user has done the onboarding (set up a Workspace)
         workspace_ids = []
         if user.workspaces.all().exists():
+            onboarding_done = True
             workspace_ids = user.workspaces.values_list('id', 'name').all()
-
-        if not user.member.all().exists():
+        else:
             onboarding_done = False
         response = Response(
             {
@@ -65,22 +66,16 @@ class SignInView(views.APIView):
         )
         return response
 
-
-class SignUpView(generics.CreateAPIView):
-    permission_classes = []
-    serializer_class = UserSerializer
-
-    def create(self, request, *args, **kwargs):
+    @action(detail=False, methods=['post'])
+    def signup(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
-        user = get_user_model().objects.create_user(
-                    email=serializer.validated_data['email'],
-                    password=request.data['password']
+        get_user_model().objects.create_user(
+            email=serializer.validated_data['email'],
+            password=request.data['password'],
+            first_name=serializer.validated_data['first_name'],
+            last_name=serializer.validated_data['last_name']
         )
-        user.first_name = serializer.validated_data['first_name']
-        user.last_name = serializer.validated_data['last_name']
-        user.save()
         user = authenticate(username=serializer.validated_data['email'], password=request.data['password'])
         refresh = RefreshToken.for_user(user)
         headers = {
@@ -89,130 +84,87 @@ class SignUpView(generics.CreateAPIView):
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Headers': 'Set-Cookie, Content-Type, Content-Length, Authorization, Accept,X-Requested-With"',
         }
-
-        # If there was an invite token in URL we automatically 
-        # add the user to the right Company or Workspace.
+        # If there was an invite token in URL we automatically
+        # add the user to the right Workspace.
         invitation_token = request.query_params.get('invitation_token')
         if invitation_token:
-            invit_obj = Invitation.objects.get(id=invitation_token)
+            invit_obj = models.Invitation.objects.get(id=invitation_token, status="PENDING")
             if invit_obj.invited_user == serializer.validated_data['email']:
-                new_member = MemberOfWorkspace(
+                new_member = models.MemberOfWorkspace(
                     user=user,
-                    workspace=Workspace.objects.get(id=invit_obj.to_workspace),
+                    workspace=models.Workspace.objects.get(id=invit_obj.to_workspace),
                     rights=invit_obj.role
                 )
                 new_member.save()
-                invit_obj.delete()
-          
+                invit_obj.status = "ACCEPTED"
+                invit_obj.save()
+
         return Response({'access': str(refresh.access_token), 'user': serializer.data}, headers=headers)
 
 
-class RetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+class WorkspaceViewSet(viewsets.ModelViewSet, NestedViewSetMixin):
+    """
+    Workspace viewset to perform following actions :
+
+    - /api/workspaces: List all Workspaces current users is in, or create a new one.
+    - /api/workspaces/<wks_id>: Retrieve, Update, Destroy a Workspace.
+    - /api/workspaces/<wks_id>/invitation: Invite a new user to a Workspace and list invitations sent.
+    """
+
+    serializer_class = serializers.WorkspaceSerializer
     permission_classes = [IsAuthenticated]
-    serializer_class = UserSerializer
+    pagination_class = x20ResultsPerPage
 
-    def get_object(self):
-        return CustomUser.objects.get(id=self.request.user.id)
-
-
-class CreateInvitationView(generics.CreateAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = InvitationSerializer
-    queryset = Invitation.objects.none()
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user_workspaces = Workspace.objects.filter(members=self.request.user)
-        if serializer.validated_data['to_workspace'] not in user_workspaces:
-            return Response('You can only invite users to YOUR own workspaces.')
-
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-
-class ListCompanyMembers(generics.ListAPIView):
-    permission_classes = [IsAuthenticated, IsCompanyAdmin]
-    serializer_class = UserSerializer
-    
     def get_queryset(self):
-        user_company = self.request.user.company
-        users_in_company = CustomUser.objects.filter(company=user_company)
-        return users_in_company
-
-class DeleteMemberOfCompany(generics.UpdateAPIView):
-    permission_classes = [IsAuthenticated, IsCompanyAdmin]
-    serializer_class = UserSerializer
-    lookup_field = 'pk'
-    queryset = CustomUser.objects.all()
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-
-        user_company = self.request.user.company
-        users_in_company = CustomUser.objects.filter(company=user_company).values_list('id',flat=True)
-        if not self.kwargs['pk'] in users_in_company:
-            return Response('You can only remove existing users from your company.')
-        
-        instance.company = None
-        instance.save()
-        return Response(serializer.data)
-
-class ListCreateWorkspaceView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated, CompanyAdminCreateWorkspace]
-    serializer_class = WorkspaceSerializer
-    
-    def get_queryset(self):
-        user = self.request.user
-        user_workspaces = MemberOfWorkspace.objects.filter(user=user).values_list('workspace')
-        my_workspaces = Workspace.objects.filter(id__in=user_workspaces)
-        return my_workspaces
+        return models.Workspace.objects.filter(members=self.request.user)
 
     def perform_create(self, serializer):
-        user_company = self.request.user.company
-        return serializer.save(company=user_company)
+        workspace = serializer.save()
+        workspace.members.add(self.request.user, through_defaults={"rights": "AD"})
 
-    def create(self, request, *args, **kwargs):
+    @action(detail=True, methods=['post'], serializer_class=serializers.InvitationSerializer)
+    def invitation(self, request, pk):
+        """Create a new Workspace invitation."""
+        workspace = self.get_object()
+        if not workspace.members.through.objects.filter(user=request.user, rights="AD").exists():
+            raise exceptions.PermissionDenied("You cannot perform this action.")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        created_workspace = self.perform_create(serializer)
+        invitation = serializer.save()
+        if CustomUser.objects.filter(email=invitation.invited_user).exists():
+            invitation.status = "ACCEPTED"
+            invitation.save()
+        return Response(status=status.HTTP_201_CREATED, data=self.get_serializer(invitation).data)
 
-        # Then, add the creator of workspace as a member of the workspace
-        created_workspace.members.add(
-            request.user,
-            through_defaults={'rights': 'AD'}
-        )
-        created_workspace.save()
-
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-        
-
-class RetrieveUpdateDestroyWorkspaceView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated, CheckWorkspaceRights]
-    serializer_class = WorkspaceSerializer
-    lookup_field = 'pk'
-    queryset = Workspace.objects.all()
+    @invitation.mapping.get
+    def list_invitations(self, request, pk):
+        """List all Workspaces invitations and their status."""
+        workspace = self.get_object()
+        invitations = workspace.invitations.objects.all()
+        page = self.paginate_queryset(invitations)
+        return Response(status=status.HTTP_200_OK, data=self.get_paginated_response(page))
 
 
-class ListCreateMemberOfWorkspaceView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated, CheckMemberOfWorkspaceRights]
-    serializer_class = MemberOfWorkspaceSerializer
+class NestedWorkspaceMembersViewset(
+    viewsets.GenericViewSet,
+    mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
+    mixins.UpdateModelMixin,
+    NestedViewSetMixin
+):
+    """
+    - /api/workspaces/<wks_id>/members: List members of Workspace.
+    - /api/workspaces/<wks_id>/members/<id>: Update or delete a Workspace member.
+    """
+
+    serializer_class = serializers.WorkspaceSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = x10ResultsPerPage
 
     def get_queryset(self):
-        workspace_id = self.request.GET.get('workspace_id')
-        workspace = Workspace.objects.get(id=workspace_id)
+        workspace_id = self.kwargs.get("parent_lookup_workspaces")
+        workspace = Workspace.objects.get(id=workspace_id).prefetch_related("members")
+        members = workspace.members.through.objects.all()
+        return members
 
-        return MemberOfWorkspace.objects.filter(workspace=workspace)
-
-
-class RetrieveUpdateDestroyMemberOfWorkspaceView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated, CheckMemberOfWorkspaceObjRights]
-    serializer_class = MemberOfWorkspaceSerializer
-    lookup_field = 'pk'
-    queryset = MemberOfWorkspace.objects.all()
+    # Test and rewrite get_objetc() ?

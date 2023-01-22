@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from commons.models import History
+from users.models import Workspace
 from users.serializers import MinimalUserSerializer
 
 
@@ -39,4 +40,10 @@ class RestrictedPKRelatedField(serializers.PrimaryKeyRelatedField):
         model = self.model
         workspace_id = self.context['workspace']
         queryset = model.objects.filter(workspace_id=workspace_id)
+        return queryset
+
+
+class RestrictedPKRelatedFieldWKS(serializers.PrimaryKeyRelatedField):
+    def get_queryset(self):
+        queryset = Workspace.objects.filter(members=self.context['user'])
         return queryset
