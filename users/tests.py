@@ -1,6 +1,8 @@
-import json
-
 import pytest
+from django.urls import reverse
+
+from users.models import Workspace, CustomUser, MemberOfWorkspace
+from users.serializers import MinimalUserSerializer
 
 USER_EMAIL = 'virgin225@gmail.com'
 USER_PASSWORD = 'Azerty123$'
@@ -8,163 +10,207 @@ COMPANY_NAME = 'Panamail'
 WORKSPACE_NAME = 'Panamail w'
 
 
-# Test create user (with invitation)
 @pytest.mark.django_db
-def test_signup_with_invitation(auth_client, user, company, invitation):
-    response = auth_client.post(f'/users/signup?invitation_token={invitation.id}', {
-        'email': 'invitee@gmail.com',
-        'password': 'Azerty123$',
-        'first_name': 'fgdfg',
-        'last_name': 'gdfgd',
+def test_create_user(auth_client, workspace, workspace_member, user):
+    url = reverse("users:users-signup")
+
+    response = auth_client.post(url, {
+        'email': 'dd@gmail.com',
+        'first_name': 'Dummies',
+        'last_name': 'Durant',
+        'password': "Azerty123$",
     })
-    resp_json = json.loads(response.content)
-    print(resp_json)
+
+    res = response.json()
     assert response.status_code == 200
-    assert resp_json['email'] == 'invitee@gmail.com'
+    assert len(res['access']) >= 10
+    assert res['user']['email'] == 'dd@gmail.com'
 
 
-# Test retrieve logged in user details
 @pytest.mark.django_db
-def test_retrieve_user_details(auth_client):
-    response = auth_client.get('/users/my-profile')
-    resp_json = json.loads(response.content)
+def test_create_user_with_invite_token(auth_client, workspace, invitation, user):
+    url = reverse("users:users-signup")
 
+    response = auth_client.post(url, {
+        'email': 'dd@gmail.com',
+        'first_name': 'Dummies',
+        'last_name': 'Durant',
+        'password': "Azerty123$",
+    }, **{"QUERY_STRING": f"invitation_token={str(invitation.id)}"})
+
+    res = response.json()
     assert response.status_code == 200
-    assert resp_json['email'] == USER_EMAIL
+    assert len(res['access']) >= 10
+    assert res['user']['email'] == 'dd@gmail.com'
 
 
-# Test create a company
 @pytest.mark.django_db
-def test_create_company(auth_client):
-    response = auth_client.post('/users/companies', {
-        'name': 'Panamail Incorporation.',
+def test_signin_user(auth_client, user2):
+    url = reverse("users:users-signin")
+    new_user = user2
+    response = auth_client.post(url, {
+        'email': new_user.email,
+        'password': "Azerty123$",
     })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 201
-    assert resp_json['name'] == 'Panamail Incorporation.'
 
-# Test retrieve my company details
-@pytest.mark.django_db
-def test_retrieve_my_company(auth_client, company, user):
-    response = auth_client.get('/users/my-company')
-    resp_json = json.loads(response.content)
+    res = response.json()
     assert response.status_code == 200
-    assert resp_json['name'] == str(company.name)
+    assert len(res['access']) >= 10
 
 
-# Test list my company members
 @pytest.mark.django_db
-def test_list_company_members(auth_client):
-    response = auth_client.get('/users/company-members/')
-    resp_json = json.loads(response.content)
-
-    for member in resp_json:
-        assert member['company'] == COMPANY_NAME
-
-    assert response.status_code == 200
-
-# Test list workspaces I belong to
-@pytest.mark.django_db
-def test_list_my_workspaces(auth_client, workspace, workspace_member):
-    response = auth_client.get('/users/workspaces')
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json[0]['name'] == WORKSPACE_NAME
-
-# Test create a workspace member
-@pytest.mark.django_db
-def test_create_workspace_member(auth_client, workspace, workspace_member, user, user2):
-    response = auth_client.post('/users/workspaces-members/', {
-        'workspace': workspace.id,
-        'user': user2.id,
-        'rights':'ME'
+def test_update_user(auth_client, user, user2):
+    url = reverse("users:users-detail", kwargs={'pk': user.id})
+    response = auth_client.patch(url, {
+        'first_name': "Louis",
     })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 201
-    assert resp_json['user'] == str(user2.id)
-    assert resp_json['workspace'] == str(workspace.id)
 
-# Test list workspaces members
-@pytest.mark.django_db
-def test_list_workspace_members(auth_client, workspace, workspace_member):
-    response = auth_client.get(f'/users/workspaces-members/?workspace_id={workspace.id}')
-    resp_json = json.loads(response.content)
-
+    res = response.json()
     assert response.status_code == 200
-    assert len(resp_json) >= 1
+    assert res['first_name'] == "Louis"
 
-# Retrieve a workspace details
-@pytest.mark.django_db
-def test_retrieve_workspace_details(auth_client, workspace, workspace_member):
-    response = auth_client.get(f'/users/workspaces/{workspace.id}')
-    resp_json = json.loads(response.content)
-
-    assert response.status_code == 200
-    assert resp_json['id'] == str(workspace.id)
-    assert resp_json['name'] == WORKSPACE_NAME
-
-# Update a member of a workspace
-@pytest.mark.django_db
-def test_update_workspace_member(auth_client, workspace, workspace_member, user):
-    response = auth_client.patch(f'/users/workspaces-members/{workspace_member.id}', {
-        'rights':'AD'
+    # Test update other user (not allowed)
+    url = reverse("users:users-detail", kwargs={'pk': user2.id})
+    response = auth_client.patch(url, {
+        'first_name': "Louis",
     })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['rights'] == 'AD'
-    assert resp_json['workspace'] == str(workspace.id)
+    assert response.status_code == 404
 
-# Update a workspace
+
 @pytest.mark.django_db
-def test_update_workspace(auth_client, workspace, workspace_member, user):
-    response = auth_client.patch(f'/users/workspaces/{workspace.id}', {
-        'name':'new Name'
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['name'] == 'new Name'
-    assert resp_json['id'] == str(workspace.id)
-
-# Test create an invitation
-@pytest.mark.django_db
-def test_create_invitation(auth_client, workspace, workspace_member, company):
-    response = auth_client.post('/users/invitations/', {
-        'invited_user': 'jean-mouloud@gmail.com',
-        'type': 'CO',
-        'role':'ME',
-        'to_company': company.id
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 201
-    assert resp_json['invited_user'] == 'jean-mouloud@gmail.com'
-    assert resp_json['to_company'] == str(company.id)
-
-# Test update my company
-@pytest.mark.django_db
-def test_update_my_company(auth_client, company, user):
-    response = auth_client.patch('/users/my-company', {
-        'website': 'https://www.panamail.io/'
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['website'] == 'https://www.panamail.io/'
-
-
-
-# Delete my company
-@pytest.mark.django_db
-def test_delete_my_company(auth_client, workspace, workspace_member, user, user2):
-    response = auth_client.delete('/users/my-company')
+def test_delete_user(auth_client, user):
+    url = reverse("users:users-detail", kwargs={'pk': user.id})
+    response = auth_client.delete(url)
     assert response.status_code == 204
+    assert CustomUser.objects.count() == 0
 
-# Delete a member of a workspace
-@pytest.mark.django_db
-def test_delete_workspace_member(auth_client, workspace, workspace_member, user, user2):
-    response = auth_client.delete(f'/users/workspaces-members/{workspace_member.id}')
-    assert response.status_code == 204
 
-# Delete a workspace
 @pytest.mark.django_db
-def test_delete_workspace(auth_client, workspace, workspace_member, user, user2):
-    response = auth_client.delete(f'/users/workspaces/{workspace.id}')
+def test_create_workspace(auth_client, user):
+    url = reverse("users:workspaces-list")
+    response = auth_client.post(url, {
+        'name': 'Panamail inc.',
+    })
+
+    res = response.json()
+    assert response.status_code == 201
+    assert res['name'] == 'Panamail inc.'
+
+
+@pytest.mark.django_db
+def test_list_workspaces(auth_client, user, workspace_member, workspace):
+    url = reverse("users:workspaces-list")
+    response = auth_client.get(url)
+
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 1
+    assert res['results'][0]['name'] == workspace.name
+
+
+@pytest.mark.django_db
+def test_update_workspace(auth_client, user, workspace, workspace_member):
+    url = reverse("users:workspaces-detail", kwargs={'pk': workspace.id})
+    response = auth_client.patch(url, {
+        'name': 'Panazz inc.',
+    })
+
+    res = response.json()
+    assert response.status_code == 200
+    assert res['name'] == 'Panazz inc.'
+
+
+@pytest.mark.django_db
+def test_delete_workspace(auth_client, user, workspace, workspace_member):
+    url = reverse("users:workspaces-detail", kwargs={'pk': workspace.id})
+    response = auth_client.delete(url)
     assert response.status_code == 204
+    assert Workspace.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_send_workspace_invitation(auth_client, user, workspace, workspace_member):
+    url = reverse("users:workspaces-invitation", kwargs={'pk': workspace.id})
+    response = auth_client.post(url, {
+        'to_workspace': str(workspace.id),
+        'invited_user': 'jp@aol.com',
+        'role': 'ME'
+    })
+
+    res = response.json()
+    assert response.status_code == 201
+    assert len(res['id']) >= 10
+
+
+@pytest.mark.django_db
+def test_list_workspace_invitations(auth_client, user, workspace, workspace_member, invitation):
+    url = reverse("users:workspaces-invitation", kwargs={'pk': workspace.id})
+    response = auth_client.get(url)
+
+    res = response.json()
+    assert response.status_code == 200
+    assert res["count"] == 1
+    assert res["results"][0]["id"] == str(invitation.id)
+
+
+@pytest.mark.django_db
+def test_list_members_of_workspace(
+        auth_client, user, workspace, workspace2, workspace_member, workspace_member2
+):
+    url = reverse("users:workspaces-members-list", kwargs={
+        'parent_lookup_workspaces': str(workspace.id),
+    })
+    response = auth_client.get(url)
+
+    res = response.json()
+    assert response.status_code == 200
+    assert res["count"] == 1
+    assert res["results"][0].get("user") == MinimalUserSerializer(user).data
+
+    # Test with another workspace (with no access)
+    url = reverse("users:workspaces-members-list", kwargs={
+        'parent_lookup_workspaces': str(workspace2.id),
+    })
+    response = auth_client.get(url)
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_update_wokspace_member(
+        auth_client, user, workspace, workspace2, workspace_member, workspace_member2
+):
+    url = reverse("users:workspaces-members-detail", kwargs={
+        'parent_lookup_workspaces': str(workspace.id),
+        'pk': workspace_member.id
+    })
+    response = auth_client.patch(url, {
+        'role': 'AD'
+    })
+
+    res = response.json()
+    assert response.status_code == 200
+    assert res["rights"] == "AD"
+
+    # Test with another workspace (with no access)
+    url = reverse("users:workspaces-members-detail", kwargs={
+        'parent_lookup_workspaces': str(workspace2.id),
+        'pk': workspace_member2.id
+    })
+    response = auth_client.patch(url, {
+        'role': 'AD'
+    })
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_delete_workspace_member(
+        auth_client, user, workspace, workspace_member
+):
+    url = reverse("users:workspaces-members-detail", kwargs={
+        'parent_lookup_workspaces': str(workspace.id),
+        'pk': workspace_member.id
+    })
+    response = auth_client.delete(url)
+
+    assert response.status_code == 204
+    assert MemberOfWorkspace.objects.count() == 0

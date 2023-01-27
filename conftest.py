@@ -1,12 +1,11 @@
 import pytest
-import json
 from django.contrib.auth import get_user_model
-from users.models import Company, Workspace, MemberOfWorkspace, Invitation
-from emails.models import Email, SenderDomain, SenderEmail
-from contacts.models import Contact, CustomField, List, Segment, ContactInList, Condition
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from contacts.models import Contact, CustomField, List, Segment, ContactInList, Condition
+from emails.models import Email, SenderDomain, SenderEmail
+from users.models import Workspace, MemberOfWorkspace, Invitation
 
 USER_EMAIL = 'virgin225@gmail.com'
 USER_PASSWORD = 'Azerty123$'
@@ -15,42 +14,46 @@ WORKSPACE_NAME = 'Panamail w'
 
 # Fixtures
 @pytest.fixture
-def company(db):
-    return Company.objects.create(name=COMPANY_NAME)
-
-@pytest.fixture
-def user(db, company):
+def user(db):
     return get_user_model().objects.create(
-        email = USER_EMAIL,
-        password = USER_PASSWORD,
-        company = company,
-        company_role = 'AD'
+        email=USER_EMAIL,
+        password=USER_PASSWORD,
     )
 
-@pytest.fixture
-def user2(db, company):
-    return get_user_model().objects.create(
-        email = 'second@gmail.com',
-        password = 'Azerty123$',
-        company = company,
-        company_role = 'ME'
-    )
 
 @pytest.fixture
-def invitation(db, user, company):
+def user2(db):
+    email = "huhik@klk.fr"
+    password = "Azerty123$"
+    user2 = get_user_model().objects.create_user(
+        email=email,
+        password=password,
+    )
+    return user2
+
+
+@pytest.fixture
+def invitation(db, user, workspace):
     return Invitation.objects.create(
-        invited_user = 'invitee@gmail.com',
-        type = 'CO',
-        role = 'ME',
-        to_company = company
+        invited_user='invitee@gmail.com',
+        role='ME',
+        to_workspace=workspace
     )
 
+
 @pytest.fixture
-def workspace(db, company):
+def workspace(db):
     return Workspace.objects.create(
         name=WORKSPACE_NAME,
-        company=company
-        )
+    )
+
+
+@pytest.fixture
+def workspace2(db):
+    return Workspace.objects.create(
+        name="2nd wks",
+    )
+
 
 @pytest.fixture
 def workspace_member(db, user, workspace):
@@ -59,6 +62,16 @@ def workspace_member(db, user, workspace):
         workspace=workspace,
         rights='AD'
     )
+
+
+@pytest.fixture
+def workspace_member2(db, user2, workspace2):
+    return MemberOfWorkspace.objects.create(
+        user=user2,
+        workspace=workspace2,
+        rights='ME'
+    )
+
 
 @pytest.fixture
 def email(db, workspace):

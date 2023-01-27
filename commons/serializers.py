@@ -1,7 +1,6 @@
 from rest_framework import serializers
 
 from commons.models import History
-from users.models import Workspace
 from users.serializers import MinimalUserSerializer
 
 
@@ -43,7 +42,18 @@ class RestrictedPKRelatedField(serializers.PrimaryKeyRelatedField):
         return queryset
 
 
-class RestrictedPKRelatedFieldWKS(serializers.PrimaryKeyRelatedField):
-    def get_queryset(self):
-        queryset = Workspace.objects.filter(members=self.context['user'])
-        return queryset
+class PKRelatedFieldWithRead(serializers.PrimaryKeyRelatedField):
+    def __init__(self, **kwargs):
+        self.read_serializer = kwargs.pop('read_serializer', None)
+        if self.read_serializer is not None and not issubclass(self.read_serializer, serializers.Serializer):
+            raise TypeError('"read_serializer" is not a valid serializer class')
+
+        super().__init__(**kwargs)
+
+    def use_pk_only_optimization(self):
+        return False if self.read_serializer else True
+
+    def to_representation(self, instance):
+        if self.read_serializer:
+            return self.read_serializer(instance, context=self.context).data
+        return super().to_representation(instance)

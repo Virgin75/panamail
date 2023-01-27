@@ -20,10 +20,10 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('users/', include(('users.urls', 'users'), namespace='users')),
-    path('contacts/', include(('contacts.urls', 'contacts'), namespace='contacts')),
+    path('api/', include(('users.urls', 'users'), namespace='users')),
+    path('api/', include(('contacts.urls', 'contacts'), namespace='contacts')),
     path('api/', include(('emails.urls', 'emails'), namespace='emails')),
-    path('campaigns/', include(('campaigns.urls', 'campaigns'), namespace='campaigns')),
+    path('api/', include(('campaigns.urls', 'campaigns'), namespace='campaigns')),
     path('api/', include(('trackerapi.urls', 'trackerapi'), namespace='trackerapi')),
     # SWAGGER
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

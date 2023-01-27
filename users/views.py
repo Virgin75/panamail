@@ -9,8 +9,8 @@ from rest_framework_extensions.mixins import NestedViewSetMixin
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from commons.paginations import x20ResultsPerPage, x10ResultsPerPage
-from users import models, serializers
-from users.models import CustomUser, Workspace
+from users.models import CustomUser, Workspace, MemberOfWorkspace, Invitation
+from users.serializers import UserSerializer, InvitationSerializer, WorkspaceSerializer, MemberOfWorkspaceSerializer
 
 
 class UserViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.UpdateModelMixin,
@@ -18,21 +18,22 @@ class UserViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.Upd
     """
     User viewset to perform following actions :
 
-    - /api/users/<id>: Retrieve, Update, Destroy a user.
-    - /api/users/signup: Create a new user.
-    - /api/users/signin: Authenticate an existing user.
+    - /api/users/<id> (GET, PATCH, DELETE): Retrieve, Update, Destroy a user.
+    - /api/users/signup (POST): Create a new user.
+        - url params: ?invitation_token=<token> >> if user is invited to a workspace.
+    - /api/users/signin (POST): Authenticate an existing user.
     """
 
-    serializer_class = serializers.UserSerializer
+    serializer_class = UserSerializer
     pagination_class = x20ResultsPerPage
 
     def get_queryset(self):
-        return models.CustomUser.objects.filter(id=self.request.user.id)
+        return CustomUser.objects.filter(id=self.request.user.id)
 
     def get_permissions(self):
         if self.action in ('signin', 'signup'):
             return []
-        return [IsAuthenticated]
+        return [IsAuthenticated()]
 
     @action(detail=False, methods=['post'])
     def signin(self, request):
@@ -88,11 +89,11 @@ class UserViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin, mixins.Upd
         # add the user to the right Workspace.
         invitation_token = request.query_params.get('invitation_token')
         if invitation_token:
-            invit_obj = models.Invitation.objects.get(id=invitation_token, status="PENDING")
+            invit_obj = Invitation.objects.get(id=invitation_token, status="PENDING")
             if invit_obj.invited_user == serializer.validated_data['email']:
-                new_member = models.MemberOfWorkspace(
+                new_member = MemberOfWorkspace(
                     user=user,
-                    workspace=models.Workspace.objects.get(id=invit_obj.to_workspace),
+                    workspace=Workspace.objects.get(id=invit_obj.to_workspace),
                     rights=invit_obj.role
                 )
                 new_member.save()
@@ -106,29 +107,29 @@ class WorkspaceViewSet(viewsets.ModelViewSet, NestedViewSetMixin):
     """
     Workspace viewset to perform following actions :
 
-    - /api/workspaces: List all Workspaces current users is in, or create a new one.
-    - /api/workspaces/<wks_id>: Retrieve, Update, Destroy a Workspace.
-    - /api/workspaces/<wks_id>/invitation: Invite a new user to a Workspace and list invitations sent.
+    - /api/workspaces (GET, POST): List all Workspaces current users is in, or create a new one.
+    - /api/workspaces/<wks_id> (GET, PATCH, DELETE): Retrieve, Update, Destroy a Workspace.
+    - /api/workspaces/<wks_id>/invitation (POST, GET): Invite a new user to a Workspace and list invitations sent.
     """
 
-    serializer_class = serializers.WorkspaceSerializer
+    serializer_class = WorkspaceSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = x20ResultsPerPage
 
     def get_queryset(self):
-        return models.Workspace.objects.filter(members=self.request.user)
+        return Workspace.objects.filter(members=self.request.user)
 
     def perform_create(self, serializer):
         workspace = serializer.save()
         workspace.members.add(self.request.user, through_defaults={"rights": "AD"})
 
-    @action(detail=True, methods=['post'], serializer_class=serializers.InvitationSerializer)
+    @action(detail=True, methods=['post'], serializer_class=InvitationSerializer)
     def invitation(self, request, pk):
         """Create a new Workspace invitation."""
         workspace = self.get_object()
         if not workspace.members.through.objects.filter(user=request.user, rights="AD").exists():
             raise exceptions.PermissionDenied("You cannot perform this action.")
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, context={'user': request.user})
         serializer.is_valid(raise_exception=True)
         invitation = serializer.save()
         if CustomUser.objects.filter(email=invitation.invited_user).exists():
@@ -140,9 +141,10 @@ class WorkspaceViewSet(viewsets.ModelViewSet, NestedViewSetMixin):
     def list_invitations(self, request, pk):
         """List all Workspaces invitations and their status."""
         workspace = self.get_object()
-        invitations = workspace.invitations.objects.all()
-        page = self.paginate_queryset(invitations)
-        return Response(status=status.HTTP_200_OK, data=self.get_paginated_response(page))
+        invitations = Invitation.objects.filter(to_workspace=workspace)
+        serializer = self.get_serializer(invitations, many=True, context={'user': request.user})
+        page = self.paginate_queryset(serializer.data)
+        return self.get_paginated_response(page)
 
 
 class NestedWorkspaceMembersViewset(
@@ -153,18 +155,27 @@ class NestedWorkspaceMembersViewset(
     NestedViewSetMixin
 ):
     """
-    - /api/workspaces/<wks_id>/members: List members of Workspace.
-    - /api/workspaces/<wks_id>/members/<id>: Update or delete a Workspace member.
+    - GET: /api/workspaces/<wks_id>/members: List members of Workspace.
+    - PATCH, DELETE: /api/workspaces/<wks_id>/members/<id>: Update or delete a Workspace member.
     """
 
-    serializer_class = serializers.WorkspaceSerializer
+    serializer_class = MemberOfWorkspaceSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = x10ResultsPerPage
 
     def get_queryset(self):
         workspace_id = self.kwargs.get("parent_lookup_workspaces")
-        workspace = Workspace.objects.get(id=workspace_id).prefetch_related("members")
-        members = workspace.members.through.objects.all()
+        workspace = Workspace.objects.get(id=workspace_id)
+        if self.request.user not in workspace.members.all():
+            raise exceptions.PermissionDenied("You cannot perform this action.")
+        members = workspace.members.through.objects.filter(workspace=workspace)
         return members
 
-    # Test and rewrite get_objetc() ?
+    def get_object(self):
+        workspace_id = self.kwargs.get("parent_lookup_workspaces")
+        workspace = Workspace.objects.get(id=workspace_id)
+        if self.request.user not in workspace.members.all():
+            raise exceptions.PermissionDenied("You cannot perform this action.")
+        member_id = self.kwargs.get("pk")
+        member = workspace.members.through.objects.get(id=member_id, workspace=workspace)
+        return member

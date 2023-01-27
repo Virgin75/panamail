@@ -10,6 +10,6 @@ class Smtp(models.Model):
 
 
 class AwsSes(models.Model):
-    name = models.CharField(default="SES", unique=True)
+    name = models.CharField(default="SES", unique=True, max_length=50)
     region = ""
     password = ""
