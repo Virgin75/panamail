@@ -1,39 +1,39 @@
-from django.core.paginator import Paginator
-from django.contrib.auth.hashers import make_password
-from django.core.paginator import Paginator
-from collections import OrderedDict
-from .encryption_util import encrypt, decrypt
 from rest_framework import serializers
-from .utils import retrieve_segment_members
-from users.serializers import UserSerializer
-from trackerapi.serializers import EventSerializer, PageSerializer
+
+from commons.models import Tag
+from commons.serializers import WksFieldsSerializer, RestrictedPKRelatedField
+from emails.serializers import TagSerializer
+from users.models import Workspace
+from users.serializers import WorkspaceSerializer
 from .models import (
     Contact,
     CustomField,
     CustomFieldOfContact,
     List,
-    ContactInList,
-    DatabaseToSync,
-    DatabaseRule,
-    Segment,
-    Condition,
+    ContactInList, Segment, GroupOfConditions, Condition,
 )
-from .paginations import x20ResultsPerPage
 
 
-class CustomFieldSerializer(serializers.ModelSerializer):
+class ContactSerializer(serializers.ModelSerializer, WksFieldsSerializer):
+    class Meta:
+        model = Contact
+        fields = '__all__'
+        read_only_fields = ['created_at', 'created_by']
+
+
+class CustomFieldSerializer(serializers.ModelSerializer, WksFieldsSerializer):
     class Meta:
         model = CustomField
-        fields = '__all__' 
+        fields = '__all__'
+        read_only_fields = ['created_at', 'created_by']
 
 
 class CustomFieldOfContactSerializer(serializers.ModelSerializer):
-    value = serializers.SerializerMethodField()
+    custom_field = RestrictedPKRelatedField(many=True, read_serializer=CustomFieldSerializer, model=CustomField)
 
     class Meta:
         model = CustomFieldOfContact
-        fields = ['custom_field', 'value', 'updated_at']
-        read_only_fields = ['custom_field', 'updated_at']
+        fields = ['custom_field', 'value_str', 'value_int', 'value_bool', 'value_date']
 
     def get_value(self, obj):        
         if obj.custom_field.type == 'str':
@@ -46,128 +46,94 @@ class CustomFieldOfContactSerializer(serializers.ModelSerializer):
             return obj.value_date
 
 
-class ContactSerializer(serializers.ModelSerializer):
-    custom_fields = serializers.SerializerMethodField()
-    events = serializers.SerializerMethodField()
-    pages = serializers.SerializerMethodField()
+class ListSerializer(serializers.ModelSerializer, WksFieldsSerializer):
+    tags = RestrictedPKRelatedField(many=True, read_serializer=TagSerializer, model=Tag)
+    contacts_count = serializers.SerializerMethodField(read_only=True)
 
-    class Meta:
-        model = Contact
-        fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at', 'custom_fields', 'events', 'pages']
-    
-    def get_custom_fields(self, obj):
-        c_fields = CustomFieldOfContact.objects.filter(contact=obj.id)
-        key_value = CustomFieldOfContactSerializer(c_fields, many=True)
-        return key_value.data
-    
-    def get_events(self, contact):
-        events = contact.events.all()
-        key_value = EventSerializer(events, many=True)
-        return key_value.data
+    def get_contacts_count(self, obj) -> int:  # noqa
+        return obj.contact_count
 
-    def get_pages(self, contact):
-        pages = contact.pages.all()
-        key_value = PageSerializer(pages, many=True)
-        return key_value.data
-
-
-class ContactSerializerAPI(serializers.ModelSerializer):
-
-    class Meta:
-        model = Contact
-        fields = '__all__'
-        read_only_fields = ['workspace', 'created_at', 'updated_at']
-
-
-class ListSerializer(serializers.ModelSerializer):
     class Meta:
         model = List
-        fields = ['id', 'name', 'description', 'workspace', 'updated_at', 'created_at']
-        read_only_fields = ['created_at', 'updated_at']
+        fields = '__all__'
+        read_only_fields = ['created_at', 'created_by']
 
-class ContactInListSerializerRead(serializers.ModelSerializer):
-    contact = ContactSerializerAPI(many=False, read_only=True)
+
+class ContactInListSerializer(serializers.ModelSerializer):
+    contact = RestrictedPKRelatedField(many=False, read_serializer=ContactSerializer, model=Contact)
+    list = ListSerializer(many=False, read_only=True)
 
     class Meta:
         model = ContactInList
         fields = '__all__'
-        read_only_fields = ['added_at', 'updated_at']
+        read_only_fields = ['created_at', 'created_by']
 
 
-class ContactInListSerializerWrite(serializers.ModelSerializer):
-    class Meta:
-        model = ContactInList
-        fields = '__all__'
-        read_only_fields = ['added_at', 'updated_at']
+class SegmentBasicSerializer(serializers.ModelSerializer, WksFieldsSerializer):
+    tags = RestrictedPKRelatedField(many=True, read_serializer=TagSerializer, model=Tag)
+    contacts_count = serializers.SerializerMethodField(read_only=True)
 
-class DatabaseToSyncSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DatabaseToSync
-        fields = '__all__'
-        extra_kwargs = {
-            'db_password': {'write_only': True},
-        }
-
-    def create(self, validated_data):
-        password = validated_data.pop('db_password', None)
-        instance = self.Meta.model(**validated_data)
-        if password is not None:
-            instance.db_password = encrypt(password)
-        instance.save()
-        return instance
-
-    def update(self, inst, validated_data):
-        password = validated_data.pop('db_password', None)
-        for key, value in validated_data.items():
-            setattr(inst, key, value)
-
-        if password is not None:
-            inst.db_password = encrypt(password)
-        inst.save()
-        return inst
-
-
-class DatabaseRuleSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DatabaseRule
-        fields = '__all__'
-        read_only_fields = ['created_at', 'updated_at']
-
-
-class SegmentSerializer(serializers.ModelSerializer):
-    count = serializers.SerializerMethodField()
+    def get_contacts_count(self, obj) -> int:  # noqa
+        return obj.contact_count
 
     class Meta:
         model = Segment
-        fields = ['id', 'name', 'count', 'description', 'operator', 'created_at', 'updated_at', 'workspace']
-        read_only_fields = ['created_at', 'updated_at', 'count']
-    
-    def get_count(self, obj):
-        return obj.members.all().count()
+        fields = '__all__'
+        read_only_fields = ['created_at', 'created_by']
 
 
-class SegmentWithMembersSerializer(serializers.ModelSerializer):
-    paginated_members = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Segment
-        fields = ['id', 'name', 'description', 'paginated_members', 'operator', 'created_at', 'updated_at', 'workspace']
-        read_only_fields = ['created_at', 'updated_at']
-    
-    def get_paginated_members(self, obj):
-        p = Paginator(obj.members.all(), 20)
-        members = p.page(self.context['request'].GET.get('p'))
-        serializer = ContactSerializerAPI(members.object_list, many=True)
-        return {
-            'total_pages': p.num_pages,
-            'has_next_page': members.has_next(), 
-            'members': serializer.data
-            }
-    
-
-class ConditionSerializer(serializers.ModelSerializer):
+class ConditionReadOnlySerializer(serializers.ModelSerializer):
     class Meta:
         model = Condition
         fields = '__all__'
-        read_only_fields = ['segment']
+
+
+class GroupOfConditionsSerializer(serializers.ModelSerializer, WksFieldsSerializer):
+    segment = RestrictedPKRelatedField(many=False, read_serializer=SegmentBasicSerializer, model=Segment)
+
+    class Meta:
+        model = GroupOfConditions
+        fields = '__all__'
+        read_only_fields = ['created_at', 'created_by']
+
+
+class ConditionSerializer(serializers.ModelSerializer):
+    CustomField = RestrictedPKRelatedField(many=False, read_serializer=CustomFieldSerializer, model=CustomField)
+
+    class Meta:
+        model = Condition
+        fields = '__all__'
+        read_only_fields = ['created_at']
+
+
+class SegmentReadOnlySerializer(serializers.ModelSerializer, WksFieldsSerializer):
+    tags = RestrictedPKRelatedField(many=True, read_serializer=TagSerializer, model=Tag)
+    contacts_count = serializers.SerializerMethodField(read_only=True)
+    conditions = serializers.SerializerMethodField(read_only=True)
+
+    def get_contacts_count(self, obj) -> int:  # noqa
+        return obj.contact_count
+
+    def get_conditions(self, obj) -> list:  # noqa
+        res = []
+        groups = GroupOfConditions.objects.filter(segment=obj)
+        for group in groups:
+            group_data = {"id": group.id, "operator": group.operator, "conditions": []}
+            res.append(group_data)
+            conditions = Condition.objects.filter(group=group)
+            for condition in conditions:
+                condition_data = ConditionReadOnlySerializer(condition).data
+                group_data["conditions"].append(condition_data)
+        return res
+
+    class Meta:
+        model = Segment
+        fields = '__all__'
+        read_only_fields = ['created_at', 'created_by']
+
+
+class ContactCSVImportSerializer(serializers.Serializer):
+    file = serializers.FileField(required=True)
+    update_existing = serializers.BooleanField(default=False, required=True)
+    list = RestrictedPKRelatedField(many=False, read_serializer=ListSerializer, model=List)
+    workspace = RestrictedPKRelatedField(many=False, read_serializer=WorkspaceSerializer, model=Workspace)

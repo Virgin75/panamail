@@ -1,4 +1,4 @@
-from django.db.models.signals import post_save
+"""from django.db.models.signals import post_save
 from django.db.models import signals
 from django.dispatch import receiver
 from .models import Event, Page
@@ -21,4 +21,4 @@ Triggered on :
 '''
 @receiver(signals.post_save, sender=Event, dispatch_uid='update_contact_segments_from_segment')
 def update_contacts_segment(sender, instance, **kwargs):
-    compute_contact_segments.delay(instance.triggered_by_contact.id)
+    compute_contact_segments.delay(instance.triggered_by_contact.id)"""

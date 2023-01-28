@@ -1,8 +1,6 @@
-import uuid
-from django.db import models
 from contacts.models import Workspace, Contact
 from users.models import CustomUser
-
+"""
 class Page(models.Model):
     url = models.CharField(max_length=150) #Or screen name
     viewed_by_contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='pages')
@@ -54,4 +52,4 @@ class TrackerAPIKey(models.Model):
     token = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     def __str__(self):
-        return f'API Key for: {self.workspace}'
+        return f'API Key for: {self.workspace}'"""

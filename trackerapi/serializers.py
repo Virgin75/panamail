@@ -1,4 +1,4 @@
-from rest_framework import serializers
+"""from rest_framework import serializers
 from .models import Event, EventAttribute, TrackerAPIKey, Page
 
 class TrackerAPIKeySerializer(serializers.ModelSerializer):
@@ -40,4 +40,4 @@ class EventSerializer(serializers.ModelSerializer):
     
     def get_attributes(self, obj):
         attributes = EventAttributeSerializer(obj.attributes.all(), many=True)
-        return attributes.data
+        return attributes.data"""

@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from contacts.models import Contact, CustomField, List, Segment, ContactInList, Condition
+from contacts.models import Contact, List
 from emails.models import Email, SenderDomain, SenderEmail
 from users.models import Workspace, MemberOfWorkspace, Invitation
 
@@ -82,12 +82,87 @@ def email(db, workspace):
         workspace=workspace
     )
 
+
+@pytest.fixture
+def list(db, workspace):
+    return List.objects.create(
+        name='Test list',
+        description='Test description',
+        workspace=workspace,
+    )
+
+
+@pytest.fixture
+def list2(db, workspace2):
+    return List.objects.create(
+        name='Test list',
+        description='Test description',
+        workspace=workspace2,
+    )
+
+
+@pytest.fixture
+def lists(db, workspace):
+    return List.objects.bulk_create(
+        [
+            List(
+                name=f'List n°{i}',
+                description='Test description',
+                workspace=workspace,
+            ) for i, _ in enumerate(range(3))
+        ]
+    )
+
+
+@pytest.fixture
+def contacts(db, workspace, list, user):
+    contacts = Contact.objects.bulk_create(
+        [
+            Contact(
+                email=f'a{i}@free.com',
+                workspace=workspace,
+            ) for i, _ in enumerate(range(3))
+        ]
+    )
+    # Also create Contacts that won't be added in list
+    Contact.objects.bulk_create(
+        [
+            Contact(
+                email=f'b{i}@free.com',
+                workspace=workspace,
+            ) for i, _ in enumerate(range(2))
+        ]
+    )
+
+    list.contacts.set(
+        contacts,
+        through_defaults={"workspace_id": workspace.id, "created_by": user})
+    return contacts
+
+
+@pytest.fixture
+def contacts2(db, workspace2, list2, user2):
+    contacts = Contact.objects.bulk_create(
+        [
+            Contact(
+                email=f'a{i}@free.com',
+                workspace=workspace2,
+            ) for i, _ in enumerate(range(3))
+        ]
+    )
+    list2.contacts.set(
+        contacts,
+        through_defaults={"workspace_id": workspace2.id, "created_by": user2})
+    return contacts
+
+
 @pytest.fixture
 def sender_domain(db, workspace):
     return SenderDomain.objects.create(
         domain_name='panamail.com',
         workspace=workspace
     )
+
 
 @pytest.fixture
 def sender_email(db, workspace, sender_domain):
@@ -97,53 +172,6 @@ def sender_email(db, workspace, sender_domain):
         name='Contact',
         domain=sender_domain,
         workspace=workspace
-    )
-
-@pytest.fixture
-def contact(db, workspace):
-    return Contact.objects.create(
-        email='contact@panamail.com',
-        workspace=workspace
-    )
-
-@pytest.fixture
-def custom_field(db, workspace):
-    return CustomField.objects.create(
-        type='str',
-        name='first_name',
-        workspace=workspace
-    )
-
-@pytest.fixture
-def list(db, workspace):
-    return List.objects.create(
-        name='Newsletter Client',
-        workspace=workspace
-    )
-
-@pytest.fixture
-def segment(db, workspace):
-    return Segment.objects.create(
-        name='Active users',
-        operator='AND',
-        workspace=workspace
-    )
-
-@pytest.fixture
-def condition(db, workspace, custom_field, segment):
-    return Condition.objects.create(
-        condition_type='CUSTOM FIELD',
-        custom_field=custom_field,
-        check_type='IS NOT',
-        input_value='Albert',
-        segment=segment
-    )
-
-@pytest.fixture
-def contact_in_list(db, workspace, contact, list):
-    return ContactInList.objects.create(
-        contact=contact,
-        list=list
     )
 
 @pytest.fixture

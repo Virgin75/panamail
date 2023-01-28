@@ -1,45 +1,30 @@
-from django.urls import path
-from .views import (
-    ListCreateContact,
-    RetrieveUpdateDestroyContact,
-    SetCustomFieldOfContact,
-    ListCreateCustomField,
-    RetrieveUpdateDestroyCustomField,
-    ListCreateList,
-    RetrieveUpdateDestroyList,
-    ListContactInList,
-    CreateContactInList,
-    DeleteContactFromList,
-    BulkContactCSVImport,
-    ListCreateDbToSync,
-    RetrieveUpdateDestroyDbToSync,
-    ListCreateDbRule,
-    RetrieveUpdateDestroyDbRule,
-    ListCreateSegment,
-    RetrieveUpdateDestroySegment,
-    ListCreateCondition,
-    RetrieveUpdateDestroyCondition,
+from rest_framework import routers
+from rest_framework_extensions.routers import ExtendedSimpleRouter
+
+from contacts import views
+
+router = routers.SimpleRouter()
+router.register(r'contacts', views.ContactViewSet, basename="contacts")
+router.register(r'custom-fields', views.CustomFieldViewSet, basename="custom-fields")
+list_router = ExtendedSimpleRouter()
+(
+    list_router.register(r'lists', views.ListViewSet, basename="lists")
+    .register(
+        r'contacts',
+        views.NestedContactInListViewSet,
+        basename="lists-contacts",
+        parents_query_lookups=['lists']
+    )
+)
+segment_router = ExtendedSimpleRouter()
+(
+    segment_router.register(r'segments', views.SegmentViewSet, basename="segments")
+    .register(
+        r'groups',
+        views.NestedGroupConditionsViewSet,
+        basename="segments-groups",
+        parents_query_lookups=['segments']
+    )
 )
 
-urlpatterns = [
-    path('contacts', ListCreateContact.as_view(), name="listcreatecontact"),
-    path('contacts/<uuid:pk>', RetrieveUpdateDestroyContact.as_view(), name="retrieveupdatedestroycontact"),
-    path('contacts/<uuid:contact_pk>/set-custom-fields', SetCustomFieldOfContact.as_view(), name="setcustomfieldofcontact"),
-    path('custom-fields', ListCreateCustomField.as_view(), name="listcreatecustomfield"),
-    path('custom-fields/<int:pk>', RetrieveUpdateDestroyCustomField.as_view(), name="retrieveupdatedestroycustomfield"),
-    path('lists', ListCreateList.as_view(), name="listcreatelist"),
-    path('lists/<uuid:pk>', RetrieveUpdateDestroyList.as_view(), name="retrieveupdatedestroylist"),
-    path('contacts-in-list', ListContactInList.as_view(), name="listcontactinlist"),
-    path('add-contact-in-list', CreateContactInList.as_view(), name="createcontactinlist"),
-    path('delete-contact-in-list/<int:pk>', DeleteContactFromList.as_view(), name="deletecontactinlist"),
-    path('bulk-csv-import', BulkContactCSVImport.as_view(), name="bulkcsvimport"),
-    path('sync-db', ListCreateDbToSync.as_view(), name="listcreatedbtosync"),
-    path('sync-db/<int:pk>', RetrieveUpdateDestroyDbToSync.as_view(), name="retrieveupdatedestroydbtosync"),
-    path('db-rules', ListCreateDbRule.as_view(), name="listcreatedbrules"),
-    path('db-rules/<int:pk>', RetrieveUpdateDestroyDbRule.as_view(), name="retrieveupdatedestroydbrule"),
-    #Segments
-    path('segments', ListCreateSegment.as_view(), name="listcreatesegment"),
-    path('segments/<uuid:pk>', RetrieveUpdateDestroySegment.as_view(), name="retrieveupdatedestroysegment"),
-    path('segments/<uuid:segment_pk>/conditions', ListCreateCondition.as_view(), name="listcreatecondition"),
-    path('segments-conditions/<int:pk>', RetrieveUpdateDestroyCondition.as_view(), name="retrieveupdatedestroycondition"),
-]
+urlpatterns = router.urls + list_router.urls + segment_router.urls

@@ -24,7 +24,7 @@ urlpatterns = [
     path('api/', include(('contacts.urls', 'contacts'), namespace='contacts')),
     path('api/', include(('emails.urls', 'emails'), namespace='emails')),
     path('api/', include(('campaigns.urls', 'campaigns'), namespace='campaigns')),
-    path('api/', include(('trackerapi.urls', 'trackerapi'), namespace='trackerapi')),
+    # path('api/', include(('trackerapi.urls', 'trackerapi'), namespace='trackerapi')),
     # SWAGGER
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

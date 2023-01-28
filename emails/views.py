@@ -3,7 +3,13 @@ from emails import serializers, models
 
 
 class EmailViewset(WorkspaceViewset):
-    """Perform all CRUD actions on Emails objects."""
+    """
+    Perform all CRUD actions on Emails objects.
+
+    - api/emails/?workspace_id=xxx (GET): List all Emails in a Workspace
+    - api/emails/ (POST): Create a new Email in a Workspace
+    - api/emails/<email_pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific Email
+    """
 
     base_model_class = models.Email
     serializer_class = serializers.EmailSerializer
@@ -14,7 +20,13 @@ class EmailViewset(WorkspaceViewset):
 
 
 class SenderDomainViewset(WorkspaceViewset):
-    """Perform all CRUD actions on Sender Domains objects."""
+    """
+    Perform all CRUD actions on Sender Domains objects.
+
+    - api/sender_domains/?workspace_id=xxx (GET): List all Sender Domains in a Workspace
+    - api/sender_domains/ (POST): Create a new Sender Domain in a Workspace
+    - api/sender_domains/<sender_domain_pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific Sender Domain
+    """
 
     base_model_class = models.SenderDomain
     serializer_class = serializers.SenderDomainSerializer
@@ -24,7 +36,13 @@ class SenderDomainViewset(WorkspaceViewset):
 
 
 class SenderEmailViewset(WorkspaceViewset):
-    """Perform all CRUD actions on Sender Email objects."""
+    """
+    Perform all CRUD actions on Sender Email objects.
+
+    - api/sender_emails/?workspace_id=xxx (GET): List all Sender Emails in a Workspace
+    - api/sender_emails/ (POST): Create a new Sender Email in a Workspace
+    - api/sender_emails/<sender_email_pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific Sender Email
+    """
 
     base_model_class = models.SenderEmail
     serializer_class = serializers.SenderEmailSerializer

@@ -8,8 +8,7 @@ from users.models import Workspace
 
 
 class Contact(BaseWorkspace):
-    class Meta:
-        unique_together = ('email', 'workspace',)
+    """Base Contact model representing a single contact."""
 
     STATUS = [
         ('SUB', 'Subscribed'),
@@ -18,29 +17,23 @@ class Contact(BaseWorkspace):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.CharField(max_length=250)
+    first_name = models.CharField(max_length=100, blank=True, null=True)
+    last_name = models.CharField(max_length=100, blank=True, null=True)
+    custom_fields = models.ManyToManyField(
+        'CustomField', through='CustomFieldOfContact', related_name='contacts', blank=True
+    )
     transac_email_status = models.CharField(max_length=5, choices=STATUS, default='SUB')
     manual_email_status = models.CharField(max_length=5, choices=STATUS, default='SUB')
 
     def __str__(self):
         return f'{self.email} - Workspace: {self.workspace}'
 
-
-class CSVImportHistory(models.Model):
-    nb_created = models.IntegerField()
-    nb_updated = models.IntegerField()
-    nb_errors = models.IntegerField()
-    error_message = models.TextField()
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-
-    def __str__(self):
-        return f'{self.created_at} - Workspace: {self.workspace}'
-
-
-class CustomField(models.Model):
     class Meta:
-        verbose_name_plural = "Custom Fields"
-        unique_together = ('name', 'workspace',)
+        unique_together = ('email', 'workspace',)
+
+
+class CustomField(BaseWorkspace):
+    """Custom Field model representing a Contact custom field instance."""
 
     FIELD_TYPES = [
         ('str', 'String'),
@@ -48,27 +41,30 @@ class CustomField(models.Model):
         ('bool', 'Boolean'),
         ('date', 'Date'),
     ]
-
     type = models.CharField(max_length=4, choices=FIELD_TYPES)
     name = models.CharField(max_length=100)
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='customfields')
+
+    class Meta:
+        verbose_name_plural = "Custom Fields"
+        unique_together = ('name', 'workspace',)
 
     def __str__(self):
         return f'{self.type}({self.name})'
 
 
-class CustomFieldOfContact(models.Model):
+class CustomFieldOfContact(BaseWorkspace):
+    """M2M table storing each custom field value for each contact."""
+
     class Meta:
         verbose_name_plural = "Relations Contact <> Custom Field"
         unique_together = ('custom_field', 'contact',)
 
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='fields_value')
     custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE)
     value_str = models.TextField(blank=True, null=True)
     value_int = models.IntegerField(blank=True, null=True)
     value_bool = models.BooleanField(blank=True, null=True)
     value_date = models.DateField(blank=True, null=True)
-    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='custom_fields')
-    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
         return f'{self.contact} <> {self.custom_field}'
@@ -84,64 +80,35 @@ class CustomFieldOfContact(models.Model):
             return self.value_bool
 
 
-class List(models.Model):
+class List(BaseWorkspace):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='lists')
     contacts = models.ManyToManyField(Contact, through='ContactInList', related_name='lists')
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
+    unsubscribed_contacts = models.ManyToManyField(Contact, related_name='unsubscribed_lists', blank=True)
+    tags = models.ManyToManyField(Tag, related_name='lists')
+
+    @property
+    def contact_count(self):
+        return self.contacts.count()
 
     def __str__(self):
         return f"{self.name} from Workspace {self.workspace}"
 
-class ContactInList(models.Model):
+
+class ContactInList(BaseWorkspace):
     class Meta:
         verbose_name_plural = "Relations Contact <> List"
         unique_together = ('contact', 'list',)
 
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     list = models.ForeignKey(List, on_delete=models.CASCADE)
-    added_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
         return f"{self.contact} is in list {self.list}"
 
 
-class DatabaseToSync(models.Model):
-    class Meta:
-        verbose_name_plural = "Databases to sync"
-    
-    DB_TYPES = [
-        ('PG', 'PostgreSQL'),
-        ('MY', 'MySQL')
-    ]
-
-    type = models.CharField(max_length=2, choices=DB_TYPES)
-    db_host = models.CharField(max_length=55)
-    db_port = models.CharField(max_length=5, blank=True, null=True)
-    db_name = models.CharField(max_length=55)
-    db_user = models.CharField(max_length=55)
-    db_password = models.CharField(max_length=250)
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='databasestosync')
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
-
-
-class DatabaseRule(models.Model):
-
-    db = models.ForeignKey(DatabaseToSync, on_delete=models.SET_NULL, null=True)
-    query = models.TextField()
-    column_mapping = models.TextField(null=True)
-    list = models.ForeignKey(List, on_delete=models.SET_NULL, null=True)
-    beat_task = models.ForeignKey(PeriodicTask, on_delete=models.SET_NULL, null=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
-
-
-class Segment(models.Model):
+class Segment(BaseWorkspace):
     OPERATORS = [
         ('AND', 'And'),
         ('OR', 'Or'),
@@ -151,28 +118,30 @@ class Segment(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     members = models.ManyToManyField(Contact, through='ContactInSegment', related_name='segments')
+    tags = models.ManyToManyField(Tag, related_name='segments')
     operator = models.CharField(max_length=3, choices=OPERATORS, default='AND')
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='segments')
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+    @property
+    def contact_count(self):
+        return self.members.count()
 
     def __str__(self):
         return self.name
 
-class ContactInSegment(models.Model):
+
+class ContactInSegment(BaseWorkspace):
     class Meta:
         verbose_name_plural = "Relations Contact <> Segment"
         unique_together = ('contact', 'segment',)
 
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     segment = models.ForeignKey(Segment, on_delete=models.CASCADE)
-    added_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
         return f"{self.contact} is in segment {self.segment}"
 
-class Condition(models.Model):
+
+class Condition(BaseWorkspace):
     class Meta:
         verbose_name_plural = "Segment Conditions"
 
@@ -214,15 +183,14 @@ class Condition(models.Model):
         ('BETWEEN', 'Between ... and ...')
     ]
 
-
-    segment = models.ForeignKey(Segment, on_delete=models.CASCADE, related_name='conditions')
+    group = models.ForeignKey('GroupOfConditions', on_delete=models.CASCADE, related_name='conditions')
     custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE, null=True, blank=True)
     condition_type = models.CharField(max_length=20, choices=CONDITION_TYPES, null=True, blank=True)
     check_type = models.CharField(max_length=20, choices=CHECK_TYPES, null=True, blank=True)
     #Contains value to check or object ID (depending on condition_type)
     input_value = models.TextField(null=True, blank=True)
     input_value2 = models.TextField(null=True, blank=True)
-    #Below fields are For PAGE & EVENT condition_type only
+    # Below fields are For PAGE & EVENT condition_type only
     check_period = models.CharField(max_length=20, choices=CHECK_PERIODS, null=True, blank=True)
     input_at_least = models.IntegerField(null=True, blank=True)
     in_last_x_days = models.IntegerField(null=True, blank=True)
@@ -231,3 +199,57 @@ class Condition(models.Model):
 
     def __str__(self):
         return f"{self.condition_type} {self.check_type}: {self.input_value} (Segment: {self.segment})"
+
+
+class GroupOfConditions(BaseWorkspace):
+    OPERATORS = [
+        ('AND', 'And'),
+        ('OR', 'Or'),
+    ]
+    operator = models.CharField(max_length=3, choices=OPERATORS, default='AND')
+    segment = models.ForeignKey(Segment, on_delete=models.CASCADE, related_name='groups')
+
+    class Meta:
+        verbose_name_plural = "Group Conditions"
+
+
+class CSVImportHistory(models.Model):
+    nb_created = models.IntegerField()
+    nb_updated = models.IntegerField()
+    nb_errors = models.IntegerField()
+    error_message = models.TextField()
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+    def __str__(self):
+        return f'{self.created_at} - Workspace: {self.workspace}'
+
+
+class DatabaseToSync(models.Model):
+    class Meta:
+        verbose_name_plural = "Databases to sync"
+
+    DB_TYPES = [
+        ('PG', 'PostgreSQL'),
+        ('MY', 'MySQL')
+    ]
+
+    type = models.CharField(max_length=2, choices=DB_TYPES)
+    db_host = models.CharField(max_length=55)
+    db_port = models.CharField(max_length=5, blank=True, null=True)
+    db_name = models.CharField(max_length=55)
+    db_user = models.CharField(max_length=55)
+    db_password = models.CharField(max_length=250)
+    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, related_name='databasestosync')
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)
+
+
+class DatabaseRule(models.Model):
+    db = models.ForeignKey(DatabaseToSync, on_delete=models.SET_NULL, null=True)
+    query = models.TextField()
+    column_mapping = models.TextField(null=True)
+    list = models.ForeignKey(List, on_delete=models.SET_NULL, null=True)
+    beat_task = models.ForeignKey(PeriodicTask, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)

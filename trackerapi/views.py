@@ -1,36 +1,5 @@
-import json
-import re
-from datetime import datetime
-from django.shortcuts import get_object_or_404, render
-from rest_framework import generics, status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from contacts.models import Contact, ContactInList, CustomField, CustomFieldOfContact
-from contacts.serializers import ContactSerializerAPI
-from users.models import Workspace
-from contacts.paginations import x20ResultsPerPage
-from contacts.models import List
-from .models import (
-    Event,
-    EventAttribute,
-    TrackerAPIKey,
-    Page,
-)
-from .serializers import (
-    TrackerAPIKeySerializer,
-    PageSerializer,
-    EventSerializer,
-)
-from emails.permissions import IsMemberOfWorkspace
-from .permissions import(
-    IsWorkspaceAdmin,
-    IsTokenValid,
-    IsTrackedContactInWorkspace,
-    IsWorkspaceAdminObj,
-)
 
-
+"""
 class ListCreateTrackerAPIKey(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsWorkspaceAdmin]
     serializer_class = TrackerAPIKeySerializer
@@ -338,4 +307,4 @@ class CreateOrUpdateContact(APIView):
         if is_created:
             return Response({'status': 'Contact was created successfully'}, status=status.HTTP_201_CREATED)
         else:
-            return Response({'status': 'Contact was updated successfully'}, status=status.HTTP_200_OK)
+            return Response({'status': 'Contact was updated successfully'}, status=status.HTTP_200_OK)"""

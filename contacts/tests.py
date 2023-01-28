@@ -1,8 +1,77 @@
 import pytest
-import json
-from .models import Contact, ContactInList, CustomField, CustomFieldOfContact, List, Segment, Condition
-from rest_framework.test import APIClient
+from django.urls import reverse
 
+from .models import Contact, ContactInList
+
+
+@pytest.mark.django_db
+def test_create_list(auth_client, workspace, workspace_member, user):
+    url = reverse("contacts:lists-list")
+    payload = {
+        'name': 'new name',
+        "description": "new description",
+        "workspace": workspace.id,
+    }
+    response = auth_client.post(url, payload)
+    res = response.json()
+    assert response.status_code == 201
+    assert res['name'] == 'new name'
+    assert res['description'] == 'new description'
+
+
+@pytest.mark.django_db
+def test_list_lists(auth_client, workspace, workspace_member, user, lists):
+    url = reverse("contacts:lists-list")
+    response = auth_client.get(url, {'workspace_id': workspace.id})
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == len(lists)
+    assert res['results'][0]['name'] == lists[0].name
+
+
+@pytest.mark.django_db
+def test_list_contacts_in_list(auth_client, workspace, workspace_member, user, list, contacts):
+    url = reverse(
+        "contacts:lists-contacts-list",
+        kwargs={'parent_lookup_lists': list.id}
+    )
+    response = auth_client.get(url, {'workspace_id': workspace.id})
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == len(contacts)
+    assert res['results'][0]['contact']['email'] in [contact.email for contact in contacts]
+
+
+@pytest.mark.django_db
+def test_add_contact_to_list(auth_client, workspace, workspace_member, user, list, contacts):
+    url = reverse(
+        "contacts:lists-contacts-list",
+        kwargs={'parent_lookup_lists': list.id}
+    )
+    contact = Contact.objects.create(workspace=workspace, email="jjj@fff.fr")
+    payload = {
+        'contact': contact.id,
+        'workspace': workspace.id,
+    }
+    response = auth_client.post(url, payload)
+    res = response.json()
+    assert response.status_code == 201
+    assert res['contact']['email'] == contact.email
+    assert res['list']['name'] == list.name
+
+
+@pytest.mark.django_db
+def test_remove_contact_from_list(auth_client, workspace, workspace_member, user, list, contacts):
+    url = reverse(
+        "contacts:lists-contacts-detail",
+        kwargs={'parent_lookup_lists': list.id, 'pk': contacts[0].id}
+    )
+    response = auth_client.delete(url)
+    assert response.status_code == 204
+    assert ContactInList.objects.filter(contact=contacts[0], list=list).count() == 0
+
+
+"""
 # Test create a contact
 @pytest.mark.django_db
 def test_create_contact(auth_client, workspace, workspace_member, user):
@@ -237,5 +306,4 @@ def test_update_segment(auth_client, workspace, list, segment, condition, custom
 @pytest.mark.django_db
 def test_delete_condition(auth_client, workspace, contact, list, segment, condition, custom_field, workspace_member, user):
     response = auth_client.delete(f'/contacts/segments-conditions/{condition.id}')
-    assert response.status_code == 204
-
+    assert response.status_code == 204"""

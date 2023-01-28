@@ -166,6 +166,7 @@ class NestedWorkspaceMembersViewset(
     def get_queryset(self):
         workspace_id = self.kwargs.get("parent_lookup_workspaces")
         workspace = Workspace.objects.get(id=workspace_id)
+        # TODO: check d'ovveride le get queryset plutot que ajouter le check ici
         if self.request.user not in workspace.members.all():
             raise exceptions.PermissionDenied("You cannot perform this action.")
         members = workspace.members.through.objects.filter(workspace=workspace)
