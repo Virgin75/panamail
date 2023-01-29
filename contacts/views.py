@@ -1,12 +1,14 @@
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_extensions.mixins import NestedViewSetMixin
 
 from commons.views import WorkspaceViewset
 from contacts import models, serializers, tasks
-from contacts.models import List
+from contacts.models import List, ContactInList
 
 
 class ContactViewSet(WorkspaceViewset):
@@ -84,6 +86,7 @@ class ListViewSet(WorkspaceViewset, NestedViewSetMixin):
 
      Custom actions:
      - /api/lists/<pk>/unsubscribed_contacts/ (GET): List of all unsubscribed contacts of a list.
+     - /api/lists/<pk>/double-optin/<validation-token> (GET): Public view for user to validate their subscription.
     """
 
     base_model_class = models.List
@@ -98,6 +101,20 @@ class ListViewSet(WorkspaceViewset, NestedViewSetMixin):
         list_obj = self.get_object()
         contacts = list_obj.unsubscribed_contacts.all()
         return Response(status=status.HTTP_200_OK, data=self.get_serializer(contacts).data)
+
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny], authentication_classes=[])
+    def double_optin(self, request, pk, validation_token):
+        """Public view for user to validate his subscription when the list has double opt-in activated."""
+        list_obj = self.get_object()
+        contact_in_list = ContactInList.objects.filter(double_optin_token=validation_token)
+        contact_in_list.double_optin_validate_date = timezone.now()
+        contact_in_list.save()
+        return Response(
+            status=status.HTTP_200_OK,
+            data={
+                "status": f"Subscription to the list {list_obj.name} confirmed."
+            }
+        )
 
 
 class NestedContactInListViewSet(WorkspaceViewset, NestedViewSetMixin):

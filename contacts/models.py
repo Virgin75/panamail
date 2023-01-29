@@ -81,9 +81,17 @@ class CustomFieldOfContact(BaseWorkspace):
 
 
 class List(BaseWorkspace):
+    """List model representing a list of contacts."""
+
+    OPTIN_CHOICES = [
+        ('double', 'Double Opt-in'),
+        ('single', 'Single Opt-in'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
+    optin_choice = models.CharField(max_length=10, default='single', choices=OPTIN_CHOICES)
     contacts = models.ManyToManyField(Contact, through='ContactInList', related_name='lists')
     unsubscribed_contacts = models.ManyToManyField(Contact, related_name='unsubscribed_lists', blank=True)
     tags = models.ManyToManyField(Tag, related_name='lists')
@@ -103,6 +111,8 @@ class ContactInList(BaseWorkspace):
 
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     list = models.ForeignKey(List, on_delete=models.CASCADE)
+    double_optin_token = models.UUIDField(default=uuid.uuid4, editable=False)
+    double_optin_validate_date = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.contact} is in list {self.list}"

@@ -25,6 +25,7 @@ class ListFactory(factories.BaseWorkspaceFactory):
     name = factory.Sequence(lambda n: 'List %d' % n)
     description = fuzzy.FuzzyText(length=100)
     contacts = factories.RelatedFactoryVariableList('contacts.factories.ContactInListFactory', 'list')
+    optin_choice = fuzzy.FuzzyChoice(models.List.OPTIN_CHOICES)
 
 
 class ContactInListFactory(factories.BaseWorkspaceFactory):
