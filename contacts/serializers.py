@@ -134,6 +134,8 @@ class SegmentReadOnlySerializer(serializers.ModelSerializer, WksFieldsSerializer
 
 class ContactCSVImportSerializer(serializers.Serializer):
     file = serializers.FileField(required=True)
-    update_existing = serializers.BooleanField(default=False, required=True)
+    update_existing = serializers.BooleanField(default=False)
+    mass_unsubscribe = serializers.BooleanField(default=False)
     list = RestrictedPKRelatedField(many=False, read_serializer=ListSerializer, model=List)
     workspace = RestrictedPKRelatedField(many=False, read_serializer=WorkspaceSerializer, model=Workspace)
+    mapping = ""

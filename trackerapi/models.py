@@ -15,6 +15,7 @@ class Event(models.Model):
     name = models.CharField(max_length=80)
     triggered_by_contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='events')
     triggered_at = models.DateTimeField(auto_now_add=True, null=True)
+    attributes = models.JsonField() ?
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='events', null=True, blank=True)
     
     def __str__(self):

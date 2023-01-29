@@ -1,11 +1,12 @@
 import pytest
 from django.urls import reverse
 
+from .factories import ListFactory
 from .models import Contact, ContactInList
 
 
 @pytest.mark.django_db
-def test_create_list(auth_client, workspace, workspace_member, user):
+def test_create_list(auth_client, workspace):
     url = reverse("contacts:lists-list")
     payload = {
         'name': 'new name',
@@ -20,12 +21,23 @@ def test_create_list(auth_client, workspace, workspace_member, user):
 
 
 @pytest.mark.django_db
-def test_list_lists(auth_client, workspace, workspace_member, user, lists):
+def test_list_lists(auth_client, workspace, workspace2):
+    lists = ListFactory.create_batch(
+        size=3,
+        workspace=workspace,
+        contacts__size=4,
+    )
+    ListFactory.create_batch(
+        size=3,
+        workspace=workspace2,
+        contacts__size=4,
+    )
+
     url = reverse("contacts:lists-list")
     response = auth_client.get(url, {'workspace_id': workspace.id})
     res = response.json()
     assert response.status_code == 200
-    assert res['count'] == len(lists)
+    assert res['count'] == len(lists)  # must not be 6
     assert res['results'][0]['name'] == lists[0].name
 
 

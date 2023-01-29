@@ -174,8 +174,9 @@ def sender_email(db, workspace, sender_domain):
         workspace=workspace
     )
 
+
 @pytest.fixture
-def auth_client(db, user):
+def auth_client(db, user, workspace, workspace_member):
     client = APIClient()
     token = RefreshToken.for_user(user)
     client.credentials(HTTP_AUTHORIZATION='Bearer ' + str(token.access_token))

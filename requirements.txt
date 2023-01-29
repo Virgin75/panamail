@@ -30,6 +30,8 @@ djangorestframework==3.13.1
 djangorestframework-simplejwt==5.0.0
 drf-extensions==0.7.1
 drf-spectacular==0.25.1
+factory-boy==3.2.1
+Faker==16.6.1
 ffmpeg-python==0.2.0
 filelock==3.4.2
 fonttools==4.29.1

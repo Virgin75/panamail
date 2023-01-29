@@ -18,7 +18,7 @@ list_router = ExtendedSimpleRouter()
 )
 segment_router = ExtendedSimpleRouter()
 (
-    segment_router.register(r'segments', views.SegmentViewSet, basename="segments")
+    segment_router.register(r'segments', views.SegmentViewset, basename="segments")
     .register(
         r'groups',
         views.NestedGroupConditionsViewSet,
