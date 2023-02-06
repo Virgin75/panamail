@@ -1,43 +1,41 @@
-"""from rest_framework import serializers
-from .models import Event, EventAttribute, TrackerAPIKey, Page
+from rest_framework import serializers
+
+from commons.serializers import RestrictedPKRelatedField
+from contacts.models import Contact, List
+from contacts.serializers import ListSerializer
+from trackerapi.models import Event, TrackerAPIKey, Page
+
 
 class TrackerAPIKeySerializer(serializers.ModelSerializer):
     class Meta:
         model = TrackerAPIKey
-        fields = '__all__' 
-        read_only_fields = ['token']
+        fields = '__all__'
+        read_only_fields = ('token', 'created_at', 'created_by', 'owner')
+
 
 class PageSerializer(serializers.ModelSerializer):
+    viewed_by_contact = serializers.EmailField(source='viewed_by_contact.email')
+
     class Meta:
         model = Page
-        fields = '__all__' 
-        read_only_fields = ['viewed_at', 'workspace', 'viewed_by_contact']
+        fields = '__all__'
+        read_only_fields = ['created_at']
 
-class EventAttributeSerializer(serializers.ModelSerializer):
-    value = serializers.SerializerMethodField()
-
-    class Meta:
-        model = EventAttribute
-        fields = ['key', 'value', 'type']
-    
-    def get_value(self, obj):    
-        if obj.type == 'str':
-            return obj.value_str
-        elif obj.type == 'int':
-            return obj.value_int
-        elif obj.type == 'bool':
-            return obj.value_bool
-        elif obj.type == 'date':
-            return obj.value_date
 
 class EventSerializer(serializers.ModelSerializer):
-    attributes = serializers.SerializerMethodField()
+    triggered_by_contact = serializers.EmailField(source='triggered_by_contact.email')
 
     class Meta:
         model = Event
-        fields = ['name', 'triggered_at', 'triggered_by_contact', 'attributes', 'workspace']
-        read_only_fields = ['triggered_at', 'workspace', 'triggered_by_contact', 'attributes']
-    
-    def get_attributes(self, obj):
-        attributes = EventAttributeSerializer(obj.attributes.all(), many=True)
-        return attributes.data"""
+        fields = '__all__'
+        read_only_fields = ['created_at']
+
+
+class ContactTrackerAPISerializer(serializers.ModelSerializer):
+    lists = RestrictedPKRelatedField(many=True, model=List, read_serializer=ListSerializer, required=False)
+    fields = serializers.JSONField(required=False)
+
+    class Meta:
+        model = Contact
+        fields = '__all__'
+        read_only_fields = ['created_at']

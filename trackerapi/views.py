@@ -1,310 +1,126 @@
+from django.shortcuts import get_object_or_404
 
-"""
-class ListCreateTrackerAPIKey(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated, IsWorkspaceAdmin]
+from commons.authentications import TrackerAPIAuthenticator
+from commons.utils import is_date
+from commons.views import WorkspaceViewset
+from contacts.models import Contact, CustomFieldOfContact
+from trackerapi.models import Page, Event, TrackerAPIKey
+from trackerapi.serializers import PageSerializer, EventSerializer, TrackerAPIKeySerializer, ContactTrackerAPISerializer
+
+
+class ApiKeyViewSet(WorkspaceViewset):
+    """
+    View allowing list, create or delete of a Tracker API key within a Workspace.
+
+    - api/api-keys/?workspace_id=xxx (GET): List all API keys in a Workspace
+    - api/api-keys/ (POST): Create a new API key in a Workspace
+    - api/api-keys/<api_key_pk>/ (DELETE): Delete a specific API key
+    """
+
+    base_model_class = TrackerAPIKey
     serializer_class = TrackerAPIKeySerializer
+    ordering_fields = ("created_at",)
 
-    def get_queryset(self):
-        workspace_id = self.request.GET.get('workspace_id')
-        workspace = get_object_or_404(Workspace, id=workspace_id)
-        return TrackerAPIKey.objects.filter(workspace=workspace)
-
-class DeleteTrackerAPIKey(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, IsWorkspaceAdminObj]
-    serializer_class = TrackerAPIKeySerializer
-    lookup_field = 'pk'
-    queryset = TrackerAPIKey.objects.all()
-    
-    
-class TrackPages(generics.CreateAPIView):
-    permission_classes = [IsTokenValid, IsTrackedContactInWorkspace]
-    serializer_class = PageSerializer
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        api_key = TrackerAPIKey.objects.get(
-            token=self.request.data['api_token']
-        )
-        contact = get_object_or_404(
-                Contact, 
-                email=request.data['contact_email'],
-                workspace=api_key.workspace
-        )
-        self.perform_create(serializer, api_key.workspace, contact)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-    def perform_create(self, serializer, workspace, contact):
-        serializer.save(workspace=workspace, viewed_by_contact=contact)
+    def perform_create(self, serializer):
+        """Override perform_create() to set the owner of the API key."""
+        serializer.save(owner=self.request.user)
 
 
-class ListPages(generics.ListAPIView):
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
-    serializer_class = PageSerializer
-    pagination_class = x20ResultsPerPage
+class TrackEventsViewSet(WorkspaceViewset):
+    """
+    View allowing to send a Track Event (related to a Contact).
 
-    def get_queryset(self):
-        workspace_id = self.request.GET.get('workspace_id')
-        workspace = get_object_or_404(Workspace, id=workspace_id)
-        return Page.objects.filter(workspace=workspace)
+    >> Usage : add you Tracker API token in the header of your request such as
+    {'Authorization': '<your_token>'}
 
-   
-class TrackEvents(generics.CreateAPIView):
-    permission_classes = [IsTokenValid, IsTrackedContactInWorkspace]
+    Endpoint :
+     - api/track-events/ (POST): Send a Track Event to the Tracker API.
+    """
+
+    base_model_class = Event
     serializer_class = EventSerializer
+    authentication_classes = (TrackerAPIAuthenticator,)
+    ordering_fields = ("created_at",)
+    search_fields = ("name", "attributes")
+    filterset_fields = ("name", "triggered_by_contact")
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        api_key = TrackerAPIKey.objects.get(
-            token=self.request.data['api_token']
-        )
-        contact = get_object_or_404(
-                Contact, 
-                email=request.data['contact_email'],
-                workspace=api_key.workspace
-        )
-        event = self.perform_create(serializer, api_key.workspace, contact)
-        #set attributes of the event
-        json_attr = json.loads(str(request.data['attributes']))
-        for key, value in json_attr.items():
-            ea = None
-            if re.match(r"([0-9]{4}-[0-9]{2}-[0-9]{2})", str(value)):
-                ea = EventAttribute(
-                    event=event,
-                    key=key,
-                    type='date',
-                    value_date=value
-                )
-            elif isinstance(value, bool):
-                ea = EventAttribute(
-                    event=event,
-                    key=key,
-                    type='bool',
-                    value_bool=value
-                )
-            elif isinstance(value, int):
-                ea = EventAttribute(
-                    event=event,
-                    key=key,
-                    type='int',
-                    value_int=value
-                )
-            else:
-                ea = EventAttribute(
-                    event=event,
-                    key=key,
-                    type='str',
-                    value_str=value
-                )
-            ea.save()
-            
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-    def perform_create(self, serializer, workspace, contact):
-        return serializer.save(workspace=workspace, triggered_by_contact=contact)
+    def perform_create(self, serializer):
+        """Override perform_create() to match email address with a Contact."""
+        contact_email = serializer.validated_data["triggered_by_contact"]
+        contact = get_object_or_404(Contact, email=contact_email)
+        if contact.workspace not in self.request.user.workspaces.all():
+            self.permission_denied(self.request)
+        serializer.save(triggered_by_contact=contact)
 
 
-class ListEvents(generics.ListAPIView):
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
-    serializer_class = EventSerializer
-    pagination_class = x20ResultsPerPage
+class TrackPagesViewSet(WorkspaceViewset):
+    """
+    View allowing to send a Track Page (related to a Contact).
 
-    def get_queryset(self):
-        workspace_id = self.request.GET.get('workspace_id')
-        workspace = get_object_or_404(Workspace, id=workspace_id)
-        return Event.objects.filter(workspace=workspace)
+    >> Usage : add you Tracker API token in the header of your request such as
+    {'Authorization': '<your_token>'}
 
+    Endpoint :
+     - api/track-pages/ (POST): Send a Track Event to the Tracker API.
+    """
 
-class CreateContact(generics.CreateAPIView):
-    permission_classes = [IsTokenValid]
-    serializer_class = ContactSerializerAPI
-    queryset = Contact.objects.all()
+    base_model_class = Page
+    serializer_class = PageSerializer
+    authentication_classes = (TrackerAPIAuthenticator,)
+    ordering_fields = ("created_at",)
+    search_fields = ("url",)
+    filterset_fields = ("url", "viewed_by_contact")
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        api_key = TrackerAPIKey.objects.get(
-            token=self.request.data['api_token']
-        )
-        workspace = api_key.workspace
-        contact = self.perform_create(serializer, workspace)
-
-        #Add Contact to list
-        list = get_object_or_404(List, id=request.data['list'])
-        membership = ContactInList.objects.filter(
-            contact=contact,
-            list=list
-        )
-        if not membership.exists():
-            ContactInList.objects.create(
-                contact=contact,
-                list=list
-            )
-            
-        #set custom fields of contact
-        json_attr = json.loads(str(request.data['attributes']))
-        for key, value in json_attr.items():
-            cf = None
-            if re.match(r"([0-9]{4}-[0-9]{2}-[0-9]{2})", str(value)):
-                cf = CustomFieldOfContact(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact,
-                    value_date=value
-                )
-            elif isinstance(value, bool):
-                cf = CustomFieldOfContact(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact,
-                    value_bool=value
-                )
-            elif isinstance(value, int):
-                cf = CustomFieldOfContact(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact,
-                    value_int=value
-                )
-            else:
-                cf = CustomFieldOfContact(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact,
-                    value_str=value
-                )
-            cf.save()
-            
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-    def perform_create(self, serializer, workspace):
-        return serializer.save(workspace=workspace)
+    def perform_create(self, serializer):
+        """Override perform_create() to match email address with a Contact."""
+        contact_email = serializer.validated_data["viewed_by_contact"]
+        contact = get_object_or_404(Contact, email=contact_email)
+        if contact.workspace not in self.request.user.workspaces.all():
+            self.permission_denied(self.request)
+        serializer.save(viewed_by_contact=contact)
 
 
-class UpdateDeleteContact(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsTokenValid, IsTrackedContactInWorkspace]
-    serializer_class = ContactSerializerAPI
-    queryset = Contact.objects.all()
+class TrackContactViewSet(WorkspaceViewset):
+    """
+    View allowing to Create or Update a Contact (add to a List or Change Attributes).
 
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        api_key = TrackerAPIKey.objects.get(token=self.request.data['api_token'])
-        workspace = api_key.workspace
-        instance = get_object_or_404(Contact, email=request.data['contact_email'], workspace=workspace)
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        contact = self.perform_update(serializer)
-        
-        #Add Contact to list
-        list = get_object_or_404(List, id=request.data['list'])
-        membership = ContactInList.objects.filter(
-            contact=contact,
-            list=list
-        )
-        if not membership.exists():
-            ContactInList.objects.create(
-                contact=contact,
-                list=list
-            )
+    Endpoints:
+     - api/track-contact/ (POST): Create a Contact.
+     - api/track-contact/ (PATCH): Update a Contact details.
+    """
 
-        #set custom fields of contact
-        json_attr = json.loads(str(request.data['attributes']))
-        for key, value in json_attr.items():
-            cf = None
-            if re.match(r"([0-9]{4}-[0-9]{2}-[0-9]{2})", str(value)):
-                cf, created = CustomFieldOfContact.objects.get_or_create(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact
-                )
-                cf.value_date = value
-            elif isinstance(value, bool):
-                cf, created = CustomFieldOfContact.objects.get_or_create(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact
-                )
-                cf.value_bool = value
-            elif isinstance(value, int):
-                cf, created = CustomFieldOfContact.objects.get_or_create(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact
-                )
-                cf.value_int = value
-            else:
-                cf, created = CustomFieldOfContact.objects.get_or_create(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact
-                )
-                cf.value_str = value
-            cf.save()
-        return Response(serializer.data)
+    base_model_class = Contact
+    serializer_class = ContactTrackerAPISerializer
+    authentication_classes = (TrackerAPIAuthenticator,)
+    ordering_fields = ("created_at", "first_name", "last_name", "email")
+    search_fields = ("email", "first_name", "last_name")
 
-    def perform_update(self, serializer):
-        return serializer.save()
-    
-    def destroy(self, request, *args, **kwargs):
-        api_key = TrackerAPIKey.objects.get(token=self.request.data['api_token'])
-        workspace = api_key.workspace
-        instance = get_object_or_404(Contact, email=request.data['contact_email'], workspace=workspace)
-        self.perform_destroy(instance)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class CreateOrUpdateContact(APIView):
-    permission_classes = [IsTokenValid]
-
-    def post(self, request, format=None):
-        data = request.data
-        api_key = TrackerAPIKey.objects.get(token=data['api_token'])
-        workspace = api_key.workspace
-        serialized_contact = ContactSerializerAPI(Contact, data=data)
-        serialized_contact.is_valid(raise_exception=True)
-        contact, is_created = Contact.objects.get_or_create(
-            email=serialized_contact.validated_data['email'],
-            workspace=workspace
-        )
-
-        #Add Contact to list
-        list = get_object_or_404(List, id=data['list'])
-        membership = ContactInList.objects.filter(
-            contact=contact,
-            list=list
-        )
-        if not membership.exists():
-            ContactInList.objects.create(
-                contact=contact,
-                list=list
-            )
-
-        #set custom fields of contact
-        json_attr = json.loads(str(data['attributes']))
-        for key, value in json_attr.items():
-            cf = None
-            if re.match(r"([0-9]{4}-[0-9]{2}-[0-9]{2})", str(value)):
-                cf, created = CustomFieldOfContact.objects.get_or_create(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact
-                )
-                cf.value_date = value
-            elif isinstance(value, bool):
-                cf, created = CustomFieldOfContact.objects.get_or_create(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact
-                )
-                cf.value_bool = value
-            elif isinstance(value, int):
-                cf, created = CustomFieldOfContact.objects.get_or_create(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact
-                )
-                cf.value_int = value
-            else:
-                cf, created = CustomFieldOfContact.objects.get_or_create(
-                    custom_field=get_object_or_404(CustomField, name=key, workspace=workspace),
-                    contact=contact
-                )
-                cf.value_str = value
-            cf.save()
-        if is_created:
-            return Response({'status': 'Contact was created successfully'}, status=status.HTTP_201_CREATED)
-        else:
-            return Response({'status': 'Contact was updated successfully'}, status=status.HTTP_200_OK)"""
+    def perform_create(self, serializer):
+        """Override perform_create() to set custom fields value or add to a List."""
+        contact = serializer.save()
+        if "lists" in serializer.validated_data:
+            lists = serializer.validated_data["lists"]
+            contact.lists.set(lists)
+        if "fields" in serializer.validated_data:
+            fields = serializer.validated_data["fields"]
+            existing_fields = contact.custom_fields.all().values_list("name", "id", flat=True)
+            # Revoir la cohérence du for loop
+            for key, value in fields.items():
+                for existing_field in existing_fields:
+                    if key == existing_field["name"]:
+                        value_type_filters = {
+                            "value_str": value if isinstance(value, str) else None,
+                            "value_int": value if isinstance(value, int) else None,
+                            "value_bool": value if isinstance(value, bool) else None,
+                            "value_date": value if is_date(value) else None,
+                        }
+                        CustomFieldOfContact.objects.create(
+                            contact=contact,
+                            custom_field_id=existing_field["id"],
+                            created_by=self.request.user,
+                            workspace=contact.workspace,
+                            **value_type_filters
+                        )
+                    else:
+                        # Custom Field does not exist. Create it.
+                        pass

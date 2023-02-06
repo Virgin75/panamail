@@ -1,6 +1,7 @@
-from django.db import models
-from users.models import Workspace
 from django.contrib.auth import get_user_model
+from django.db import models
+
+from users.models import Workspace
 
 
 class History(models.Model):
@@ -19,7 +20,7 @@ class BaseWorkspace(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='created_%(class)ss'
+        related_name='%(class)s'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     edit_history = models.ManyToManyField(History, blank=True)

@@ -1,7 +1,9 @@
 /env
-env
 .env
 /.env
+venv
+venv/*
+env
 migrations
 data
 /data
@@ -11,3 +13,4 @@ uploads
 /uploads
 /nginx/nginx.key
 /nginx/nginx-certificate.crt
+db.sqlite3

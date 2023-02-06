@@ -1,56 +1,45 @@
+import uuid
+
+from django.db import models
+
+from commons.models import BaseWorkspace
 from contacts.models import Workspace, Contact
 from users.models import CustomUser
-"""
-class Page(models.Model):
-    url = models.CharField(max_length=150) #Or screen name
+
+
+class Page(BaseWorkspace):
+    """
+    Store Page views by Contact on client's website.
+
+    Track Pages data are mostly used to generate dynamic Segments of Contacts.
+    """
+
+    url = models.CharField(max_length=200)  # Or screen name
     viewed_by_contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='pages')
-    viewed_at = models.DateTimeField(auto_now_add=True, null=True)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='pages', null=True, blank=True)
-
-    def __str__(self):
-        return f'Page: {self.url} viewed by {self.viewed_by_contact}'
 
 
-class Event(models.Model):
+class Event(BaseWorkspace):
+    """
+    Store Events triggered by Contact on client's website.
+
+    Track Pages data are mostly used to generate dynamic Segments of Contacts.
+    """
+
     name = models.CharField(max_length=80)
     triggered_by_contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='events')
-    triggered_at = models.DateTimeField(auto_now_add=True, null=True)
-    attributes = models.JsonField() ?
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='events', null=True, blank=True)
-    
-    def __str__(self):
-        return f'Event: {self.name} triggered by {self.triggered_by_contact} at {self.triggered_at}'
+    attributes = models.JSONField(null=True, blank=True)
 
 
-class EventAttribute(models.Model):
-    class Meta:
-        verbose_name_plural = "Events' attributes"
+class TrackerAPIKey(BaseWorkspace):
+    """
+    Stores API keys related to a Workspace.
 
-    FIELD_TYPES = [
-        ('str', 'String'),
-        ('int', 'Integer'),
-        ('bool', 'Boolean'),
-        ('date', 'Date'),
-    ]
+    Each Workspace can have many API keys. An API key is mandatory to send a
+    Track Event or Track Page to the Tracker API.
+    """
 
-    key = models.CharField(max_length=50)
-    value_str = models.TextField(null=True, blank=True)
-    value_int = models.IntegerField(null=True, blank=True)
-    value_bool = models.BooleanField(null=True, blank=True)
-    value_date = models.DateTimeField(null=True, blank=True)
-    type = models.CharField(max_length=4, choices=FIELD_TYPES, null=True, blank=True)
-    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='attributes')
-
-    def __str__(self):
-        return f'Event attribute: "{self.key}": ({self.type})'
-
-
-class TrackerAPIKey(models.Model):
     class Meta:
         verbose_name_plural = "Tracker API keys"
 
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='api_keys')
     token = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-
-    def __str__(self):
-        return f'API Key for: {self.workspace}'"""
+    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='api_keys')

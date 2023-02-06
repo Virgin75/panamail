@@ -8,7 +8,7 @@ from users.models import Workspace
 
 
 class Contact(BaseWorkspace):
-    """Base Contact model representing a single contact."""
+    """Base Contact model representing a single person that we may send email to."""
 
     STATUS = [
         ('SUB', 'Subscribed'),
@@ -81,7 +81,7 @@ class CustomFieldOfContact(BaseWorkspace):
 
 
 class List(BaseWorkspace):
-    """List model representing a list of contacts."""
+    """A List gathers many Contacts objects. They are used to facilitate email sending."""
 
     OPTIN_CHOICES = [
         ('double', 'Double Opt-in'),
@@ -118,7 +118,20 @@ class ContactInList(BaseWorkspace):
         return f"{self.contact} is in list {self.list}"
 
 
+class ContactInListHistory(BaseWorkspace):
+    """Store the evolution of a specific List for each day of a calendar year."""
+
+    class Meta:
+        verbose_name_plural = "Contact In List History"
+
+    list = models.ForeignKey(List, on_delete=models.CASCADE)
+    date = models.DateTimeField()
+    total_contacts = models.IntegerField()
+
+
 class Segment(BaseWorkspace):
+    """A Segment is a group of Contacts that is dynamically computed given a list of Conditions."""
+
     OPERATORS = [
         ('AND', 'And'),
         ('OR', 'Or'),
@@ -140,6 +153,8 @@ class Segment(BaseWorkspace):
 
 
 class ContactInSegment(BaseWorkspace):
+    """M2M table storing each Contact in a Segment."""
+
     class Meta:
         verbose_name_plural = "Relations Contact <> Segment"
         unique_together = ('contact', 'segment',)
@@ -151,7 +166,20 @@ class ContactInSegment(BaseWorkspace):
         return f"{self.contact} is in segment {self.segment}"
 
 
+class ContactInSegmentHistory(BaseWorkspace):
+    """Store the evolution of a specific Segment for each day of a calendar year."""
+
+    class Meta:
+        verbose_name_plural = "Contact In Segment History"
+
+    segment = models.ForeignKey(Segment, on_delete=models.CASCADE)
+    date = models.DateTimeField()
+    total_contacts = models.IntegerField()
+
+
 class Condition(BaseWorkspace):
+    """A Condition is a rule that is used to compute a Segment members."""
+
     class Meta:
         verbose_name_plural = "Segment Conditions"
 
@@ -212,6 +240,8 @@ class Condition(BaseWorkspace):
 
 
 class GroupOfConditions(BaseWorkspace):
+    """A GroupOfConditions is a group of Conditions that are combined with an operator (AND/OR)."""
+
     OPERATORS = [
         ('AND', 'And'),
         ('OR', 'Or'),
