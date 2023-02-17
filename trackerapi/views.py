@@ -46,6 +46,7 @@ class TrackEventsViewSet(WorkspaceViewset):
 
     def perform_create(self, serializer):
         """Override perform_create() to match email address with a Contact."""
+        # TODO: update contact edit_history field
         contact_email = serializer.validated_data["triggered_by_contact"]
         contact = get_object_or_404(Contact, email=contact_email)
         if contact.workspace not in self.request.user.workspaces.all():
@@ -73,6 +74,7 @@ class TrackPagesViewSet(WorkspaceViewset):
 
     def perform_create(self, serializer):
         """Override perform_create() to match email address with a Contact."""
+        # TODO: update contact edit_history field
         contact_email = serializer.validated_data["viewed_by_contact"]
         contact = get_object_or_404(Contact, email=contact_email)
         if contact.workspace not in self.request.user.workspaces.all():
@@ -85,8 +87,8 @@ class TrackContactViewSet(WorkspaceViewset):
     View allowing to Create or Update a Contact (add to a List or Change Attributes).
 
     Endpoints:
-     - api/track-contact/ (POST): Create a Contact.
-     - api/track-contact/ (PATCH): Update a Contact details.
+     - api/track-contacts/ (POST): Create a Contact.
+     - api/track-contacts/ (PATCH): Update a Contact details.
     """
 
     base_model_class = Contact
@@ -97,10 +99,11 @@ class TrackContactViewSet(WorkspaceViewset):
 
     def perform_create(self, serializer):
         """Override perform_create() to set custom fields value or add to a List."""
+        # TODO: update contact edit_history field
         contact = serializer.save()
         if "lists" in serializer.validated_data:
-            lists = serializer.validated_data["lists"]
-            contact.lists.set(lists)
+            for list in serializer.validated_data["lists"]:
+                list.contacts.add(contact)
         if "fields" in serializer.validated_data:
             fields = serializer.validated_data["fields"]
             existing_fields = contact.custom_fields.all().values_list("name", "id", flat=True)

@@ -38,7 +38,10 @@ class RestrictedPKRelatedField(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
         model = self.model
         workspace_id = self.context['workspace']
-        queryset = model.objects.filter(workspace_id=workspace_id)
+        if self.model.__name__ == 'Workspace':
+            queryset = model.objects.filter(id=workspace_id)
+        else:
+            queryset = model.objects.filter(workspace_id=workspace_id)
         return queryset
 
 

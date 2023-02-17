@@ -1,8 +1,10 @@
+from io import BytesIO
+
 import pytest
 from django.urls import reverse
 
-from .factories import ListFactory
-from .models import Contact, ContactInList
+from .factories import ListFactory, CustomFieldFactory
+from .models import Contact, ContactInList, CSVImportHistory, CustomFieldOfContact
 
 
 @pytest.mark.django_db
@@ -39,6 +41,52 @@ def test_list_lists(auth_client, workspace, workspace2):
     assert response.status_code == 200
     assert res['count'] == len(lists)  # must not be 6
     assert res['results'][0]['name'] == lists[0].name
+
+
+@pytest.mark.django_db
+def test_bulk_import_contacts_in_list(auth_client, workspace):
+    list = ListFactory.create(
+        workspace=workspace,
+        contacts__size=3,
+    )
+    custom_field_int = CustomFieldFactory.create(
+        workspace=workspace,
+        type='int',
+        name='age',
+    )
+    custom_field_str = CustomFieldFactory.create(
+        workspace=workspace,
+        type='str',
+        name='type',
+    )
+    file = BytesIO(b'email,age,type\ntest1@gmail.com,20,student\ntest2@gmail.com,30,teacher')
+    file.name = 'test.csv'
+
+    url = reverse("contacts:contacts-bulk-import")
+    payload = {
+        "update_existing": False,
+        "mass_unsubscribe": False,
+        "list": list.id,
+        'workspace': workspace.id,
+        "file": file,
+        "mapping": ["email", str(custom_field_int.id), str(custom_field_str.id)],
+    }
+    response = auth_client.post(url, payload)
+    res = response.json()
+
+    contacts_custom_fields = CustomFieldOfContact.objects.filter(contact__workspace=workspace)
+    assert len(contacts_custom_fields) == 4
+    task = CSVImportHistory.objects.first()
+    assert task.file_name == 'test.csv'
+    assert task.nb_created == 2
+    assert task.nb_errors == 0
+    assert Contact.objects.filter(email="test1@gmail.com").exists()
+    assert Contact.objects.filter(email="test2@gmail.com").exists()
+    assert task.workspace == workspace
+    assert task.list == list
+    assert task.mapping == ['email', str(custom_field_int.id), str(custom_field_str.id)]
+    assert response.status_code == 200
+    assert res["status"] == "Started importing contacts from csv file."
 
 
 @pytest.mark.django_db

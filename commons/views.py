@@ -42,6 +42,7 @@ class WorkspaceViewset(viewsets.ModelViewSet):
     prefetch_related_fields = ("edit_history",)
 
     def get_queryset(self, **kwargs):
+
         if self.action in ('list',):
             workspace_obj = Workspace.objects.get(id=self.request.GET.get('workspace_id'))
         else:
@@ -100,10 +101,14 @@ class WorkspaceViewset(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         if self.action in ('list',):
             workspace_id = self.request.GET.get('workspace_id')
+            context["workspace"] = workspace_id
+
         elif self.action in ('retrieve', 'update', 'partial_update', 'destroy',):
             workspace_id = self.get_object().workspace.id
-        elif self.action == "create":
-            workspace_id = self.request.data.get("workspace")
+            context["workspace"] = workspace_id
 
-        context["workspace"] = workspace_id
+        elif self.action in ("create", "bulk_import"):
+            workspace_id = self.request.data.get("workspace")
+            context["workspace"] = workspace_id
+
         return context

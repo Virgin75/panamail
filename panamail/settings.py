@@ -98,8 +98,12 @@ WSGI_APPLICATION = 'panamail.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': "default_database",
+        'USER': "username",
+        'PASSWORD': "password",
+        'HOST': "localhost",
+        'PORT': 5432,
     }
 }
 
@@ -185,6 +189,7 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ENABLE_UTC = False
+CELERY_ALWAYS_EAGER = True
 
 #AWS STUFF
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', default="null")

@@ -1,10 +1,11 @@
 import uuid
 
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django_celery_beat.models import PeriodicTask, IntervalSchedule
 
 from commons.models import BaseWorkspace, Tag
-from users.models import Workspace
+from users.models import Workspace, CustomUser
 
 
 class Contact(BaseWorkspace):
@@ -81,7 +82,7 @@ class CustomFieldOfContact(BaseWorkspace):
 
 
 class List(BaseWorkspace):
-    """A List gathers many Contacts objects. They are used to facilitate email sending."""
+    """A List gathers many Contacts objects. They are used to facilitate newsletter bulk sending."""
 
     OPTIN_CHOICES = [
         ('double', 'Double Opt-in'),
@@ -105,17 +106,16 @@ class List(BaseWorkspace):
 
 
 class ContactInList(BaseWorkspace):
+    """M2M table storing the relating between a Contact and a List."""
+
     class Meta:
         verbose_name_plural = "Relations Contact <> List"
         unique_together = ('contact', 'list',)
 
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     list = models.ForeignKey(List, on_delete=models.CASCADE)
-    double_optin_token = models.UUIDField(default=uuid.uuid4, editable=False)
+    double_optin_token = models.UUIDField(default=uuid.uuid4, editable=False, max_length=36)
     double_optin_validate_date = models.DateTimeField(null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.contact} is in list {self.list}"
 
 
 class ContactInListHistory(BaseWorkspace):
@@ -253,16 +253,21 @@ class GroupOfConditions(BaseWorkspace):
         verbose_name_plural = "Group Conditions"
 
 
-class CSVImportHistory(models.Model):
-    nb_created = models.IntegerField()
-    nb_updated = models.IntegerField()
-    nb_errors = models.IntegerField()
-    error_message = models.TextField()
-    workspace = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
+class CSVImportHistory(BaseWorkspace):
+    """Model storing an import file (used for Contacts) and its results."""
 
-    def __str__(self):
-        return f'{self.created_at} - Workspace: {self.workspace}'
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    nb_created = models.IntegerField(null=True, blank=True)
+    nb_updated = models.IntegerField(null=True, blank=True)
+    nb_errors = models.IntegerField(null=True, blank=True)
+    error_message = models.TextField(null=True, blank=True)
+    file_name = models.CharField(max_length=250, null=True, blank=True)
+    # Below fields are needed in request payload
+    file = models.BinaryField(null=True, blank=True)
+    list = models.ForeignKey(List, on_delete=models.SET_NULL, null=True, blank=True)
+    update_existing = models.BooleanField(default=False)
+    mass_unsubscribe = models.BooleanField(default=False)
+    mapping = ArrayField(models.CharField(max_length=250), null=True, blank=True)
 
 
 class DatabaseToSync(models.Model):

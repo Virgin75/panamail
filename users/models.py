@@ -33,7 +33,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
 
 class Workspace(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, max_length=36)
     name = models.CharField(max_length=100)
     logo = models.ImageField(upload_to='uploads', null=True, blank=True)
     address = models.CharField(max_length=125, null=True, blank=True)

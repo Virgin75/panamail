@@ -8,7 +8,7 @@ from rest_framework_extensions.mixins import NestedViewSetMixin
 
 from commons.views import WorkspaceViewset
 from contacts import models, serializers, tasks
-from contacts.models import List, ContactInList
+from contacts.models import List, ContactInList, CSVImportHistory
 
 
 class ContactViewSet(WorkspaceViewset):
@@ -23,10 +23,10 @@ class ContactViewSet(WorkspaceViewset):
      - /api/contacts/<pk>/set-custom-field-value/ (POST): Set custom field value of a Contact.
      - /api/contacts/<pk>/unsub_from_list/<list_pk> (POST): Unsub a contact from a specific list.
      - /api/contacts/<pk>/lists/ (GET): Get all lists a Contact belongs to.
+     - /api/contacts/bulk-import/ (POST): Bulk import contacts from csv file.
      TODO:
-    - /api/contacts/<pk>/segments/ (POST)
-    - /api/contacts/<pk>/events/ (POST)
-    - /api/contacts/<pk>/pages/ (POST)
+    - /api/contacts/<pk>/history/ (GET) : List recent events, pages, and emails activities of a contact.
+
     """
 
     base_model_class = models.Contact
@@ -58,6 +58,25 @@ class ContactViewSet(WorkspaceViewset):
         list_obj = List.objects.get(pk=list_pk)
         list_obj.unsubscribed_contacts.add(self.get_object())
         return Response(status=status.HTTP_200_OK, data={"status": "Contact unsubscribed from list."})
+
+    @action(detail=False, methods=['post'], serializer_class=serializers.ContactCSVImportSerializer)
+    def bulk_import(self, request):
+        """Bulk import contacts from csv file into a specific List."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # Save task to be processed later (async)
+        task = CSVImportHistory.objects.create(
+            workspace=serializer.validated_data['workspace'],
+            file=serializer.validated_data['file'].read(),
+            file_name=serializer.validated_data['file'].name,
+            created_by=request.user,
+            list=serializer.validated_data['list'],
+            update_existing=serializer.validated_data['update_existing'],
+            mass_unsubscribe=serializer.validated_data['mass_unsubscribe'],
+            mapping=serializer.validated_data['mapping'],
+        )
+        tasks.do_csv_import.delay(import_task_id=task.id)
+        return Response(status=status.HTTP_200_OK, data={"status": "Started importing contacts from csv file."})
 
 
 class CustomFieldViewSet(WorkspaceViewset):
@@ -232,27 +251,6 @@ class NestedGroupConditionsViewSet(WorkspaceViewset, NestedViewSetMixin):
 
 
 """
-class BulkContactCSVImport(APIView):
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspace, HasListAccess]
-
-    def post(self, request, format=None):
-        
-        file = request.FILES['csv_file'].read()
-        b64_file = base64.b64encode(file).decode('utf-8')
-        
-        #Celery task to do the csv import
-        do_csv_import.delay(
-            b64_file,
-            list(json.loads(request.POST['mapping']).values()),
-            request.POST['workspace'],
-            request.POST['update_existing_contacts'],
-            request.POST['list'],
-            request.POST['unsub_campaign']
-            )
-
-        return Response({'status': 'All contacts are being uploaded.'})
-
-
 class ListCreateDbToSync(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
     serializer_class = DatabaseToSyncSerializer
@@ -321,47 +319,4 @@ class RetrieveUpdateDestroyDbRule(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = DatabaseRuleSerializer
     lookup_field = 'pk'
 
-class ListCreateSegment(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspace]
-    serializer_class = SegmentSerializer
-
-    def get_queryset(self):
-        workspace_id = self.request.GET.get('workspace_id')
-        workspace = get_object_or_404(Workspace, id=workspace_id)
-
-        return Segment.objects.filter(workspace=workspace)
-
-class RetrieveUpdateDestroySegment(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Segment.objects.all()
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObj]
-    serializer_class = SegmentWithMembersSerializer
-    lookup_field = 'pk'
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = SegmentSerializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-
-        return Response(serializer.data)
-
-
-class ListCreateCondition(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceSC]
-    serializer_class = ConditionSerializer
-
-    def perform_create(self, serializer):
-        segment = Segment.objects.get(id=self.kwargs['segment_pk'])
-        serializer.save(segment=segment)
-
-    def get_queryset(self):
-        segment = get_object_or_404(Segment, id=self.kwargs['segment_pk'])
-        return Condition.objects.filter(segment=segment)
-
-
-class RetrieveUpdateDestroyCondition(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Condition.objects.all()
-    permission_classes = [IsAuthenticated, IsMemberOfWorkspaceObjC]
-    serializer_class = ConditionSerializer
-    lookup_field = 'pk'"""
+"""

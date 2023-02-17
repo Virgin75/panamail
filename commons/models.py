@@ -20,7 +20,7 @@ class BaseWorkspace(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='%(class)s'
+        related_name='%(class)s_set'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     edit_history = models.ManyToManyField(History, blank=True)

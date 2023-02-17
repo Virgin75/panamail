@@ -1,17 +1,14 @@
 import csv
 import io
-import base64
-import psycopg2
-from .encryption_util import decrypt
-from celery.utils.log import get_task_logger
-from django.shortcuts import get_object_or_404
-from pyparsing import line
-from panamail import celery_app
-from .models import Contact, ContactInSegment, CustomField, List, CustomFieldOfContact, CSVImportHistory, ContactInList, DatabaseToSync, DatabaseRule, Segment
-from users.models import Workspace
-from .utils import retrieve_segment_members
-from .models import Contact, CustomField, CustomFieldOfContact
 
+import psycopg2
+from celery.utils.log import get_task_logger
+
+from panamail import celery_app
+from .encryption_util import decrypt
+from .models import Contact, CustomField, CustomFieldOfContact
+from .models import ContactInSegment, CSVImportHistory, DatabaseToSync, DatabaseRule, Segment
+from .utils import retrieve_segment_members
 
 logger = get_task_logger(__name__)
 
@@ -48,76 +45,118 @@ def sync_contacts_from_db(sync_db_id, rule_id):
 
 
 @celery_app.task(name="do_csv_import")
-def do_csv_import(contacts, column_mapping, workspace_id, update_existing, list_id, unsub):
-    """Create all contacts from the csv file imported"""
+def do_csv_import(import_task_id):
+    """Async task that import Contacts into a specific List."""
     created_contacts = 0
     updated_contacts = 0
     nb_errors = 0
     lines_with_error = []
 
-    decrypted = base64.b64decode(contacts).decode('utf-8')
+    # Retrieve fields from task
+    task = CSVImportHistory.objects.get(id=import_task_id)
+    csv_file = task.file
+    csv_binary_file = io.BytesIO(bytes(memoryview(csv_file)))
+    must_mass_unsubscribe = task.mass_unsubscribe
+    must_update_existing = task.update_existing
+    mapping = task.mapping
 
-    with io.StringIO(decrypted) as f:
-        reader = csv.DictReader(f)
+    with io.TextIOWrapper(csv_binary_file, encoding='utf-8') as file:
+        reader = csv.DictReader(file, delimiter=',')
+        custom_fields = []
+        for i, column in enumerate(reader.fieldnames):
+            if column not in ['email', 'first_name', 'last_name']:
+                custom_fields.append({
+                    'name': column,
+                    'id': mapping[i],
+                    'type': CustomField.objects.get(id=mapping[i]).type,
+                    'row_index': i
+                })
 
-        #Get or Create contact
-        for line, contact in enumerate(reader):
-            contact_l = list(contact.values())
+        for row in reader:
             try:
-                contact_obj, created = Contact.objects.get_or_create(
-                    email=contact_l[column_mapping.index('email')],
-                    workspace=get_object_or_404(Workspace, id=workspace_id)
+                # Get or create Contact
+                contact, created = Contact.objects.get_or_create(
+                    workspace=task.workspace,
+                    email=row['email']
                 )
 
-                #Add custom fields to contact
-                for i, field in enumerate(contact_l):
-                    if field == contact_l[column_mapping.index('email')]:
-                        continue
-                    
-                    obj, created_obj = CustomFieldOfContact.objects.get_or_create(
-                        contact=contact_obj,
-                        custom_field=CustomField.objects.get(id=column_mapping[i])
-                    )
-                    if update_existing == "True":
-                        obj.value = field
-                        obj.save()
-                    if update_existing == "False":
-                        if created:
-                            obj.value = field
-                            obj.save()
-                
-                #Add contact to selected list
-                if len(list_id) > 1:
-                    membership = ContactInList(
-                        contact=contact_obj,
-                        list=List.objects.get(id=list_id)
-                    )
-                    membership.save()
-                
-                #Set unsub status
-                if unsub == 'True':
-                    contact_obj.manual_email_status = False
-                    contact_obj.save()
+                # If must mass unsub contact
+                if must_mass_unsubscribe:
+                    contact.transac_email_status = 'UNSUB'
+                    contact.manual_email_status = 'UNSUB'
+                    contact.save()
 
-                #Update upload metrics
+                # Update/set reserved attributes
+                if "first_name" in row and (must_update_existing or created):
+                    contact.first_name = row['first_name']
+                if "last_name" in row and (must_update_existing or created):
+                    contact.last_name = row['last_name']
+                contact.save()
+
+                # Update/set custom fields
+                for field in custom_fields:
+                    value = CustomFieldOfContact.objects.filter(contact=contact, custom_field_id=field['id'])
+                    if value.exists() and must_update_existing:
+                        match field["type"]:
+                            case "int":
+                                value[0].value_int = row[field['name']]
+                            case "str":
+                                value[0].value_str = row[field['name']]
+                            case "bool":
+                                value[0].value_bool = row[field['name']]
+                            case "date":
+                                value[0].value_date = row[field['name']]
+                        value[0].save()
+
+                    if not value.exists():
+                        match field["type"]:
+                            case "int":
+                                CustomFieldOfContact.objects.create(
+                                    contact=contact,
+                                    custom_field_id=field['id'],
+                                    value_int=row[field['name']],
+                                    workspace=task.workspace
+                                )
+                            case "str":
+                                CustomFieldOfContact.objects.create(
+                                    contact=contact,
+                                    custom_field_id=field['id'],
+                                    value_str=row[field['name']],
+                                    workspace=task.workspace
+                                )
+                            case "bool":
+                                CustomFieldOfContact.objects.create(
+                                    contact=contact,
+                                    custom_field_id=field['id'],
+                                    value_bool=row[field['name']],
+                                    workspace=task.workspace
+                                )
+                            case "date":
+                                CustomFieldOfContact.objects.create(
+                                    contact=contact,
+                                    custom_field_id=field['id'],
+                                    value_date=row[field['name']],
+                                    workspace=task.workspace
+                                )
+
                 if created:
                     created_contacts += 1
                 else:
                     updated_contacts += 1
 
-            except:
-                nb_errors +=1
-                lines_with_error.append(str(line + 2))
-                
+            except Exception as e:
+                nb_errors += 1
+                lines_with_error.append(row["email"])
 
-    activity = CSVImportHistory(
-        nb_created = created_contacts,
-        nb_updated = updated_contacts,
-        nb_errors = nb_errors,
-        error_message = ', '.join(lines_with_error),
-        workspace = Workspace.objects.get(id=workspace_id)
-    )
-    activity.save()
+            finally:
+                task.file = None
+                task.save()
+
+    task.nb_created = created_contacts
+    task.nb_updated = updated_contacts
+    task.nb_errors = nb_errors
+    task.error_message = ', '.join(lines_with_error)
+    task.save()
 
     logger.info(f"{created_contacts} contacts were created and {updated_contacts} were updated.")
     return
@@ -125,7 +164,7 @@ def do_csv_import(contacts, column_mapping, workspace_id, update_existing, list_
 
 @celery_app.task(name="compute_segment_members")
 def compute_segment_members(segment_id):
-    """Get all Segment members given a Segment id. Triggered when a segment is created or updated"""
+    # Get all Segment members given a Segment id. Triggered when a segment is created or updated
     
     segment = Segment.objects.get(id=segment_id)
     if segment.conditions.all().count() == 0:
@@ -148,7 +187,7 @@ def compute_segment_members(segment_id):
 
 @celery_app.task(name="compute_contact_segments")
 def compute_contact_segments(contact_id):
-    """Update a Contact Segments membership. Triggered when any Contact info is updated (field change, new event, new page, new list membership...)"""
+    # Update a Contact Segments membership. Triggered when any Contact info is updated (field change, new event, new page, new list membership...)
    
     contact = Contact.objects.get(id=contact_id)
     workspace = contact.workspace

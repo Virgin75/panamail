@@ -10,7 +10,7 @@ from .models import (
     CustomField,
     CustomFieldOfContact,
     List,
-    ContactInList, Segment, GroupOfConditions, Condition,
+    ContactInList, Segment, GroupOfConditions, Condition, CSVImportHistory,
 )
 
 
@@ -132,10 +132,16 @@ class SegmentReadOnlySerializer(serializers.ModelSerializer, WksFieldsSerializer
         read_only_fields = ['created_at', 'created_by']
 
 
-class ContactCSVImportSerializer(serializers.Serializer):
+class ContactCSVImportSerializer(serializers.ModelSerializer):  # noqa
     file = serializers.FileField(required=True)
     update_existing = serializers.BooleanField(default=False)
     mass_unsubscribe = serializers.BooleanField(default=False)
     list = RestrictedPKRelatedField(many=False, read_serializer=ListSerializer, model=List)
     workspace = RestrictedPKRelatedField(many=False, read_serializer=WorkspaceSerializer, model=Workspace)
-    mapping = ""
+    # Mapping field should look like this for a 6-column CSV file: (custom fields are referenced with their id)
+    # ["email", "first_name", "last_name", "12", "7", "9"]
+    mapping = serializers.ListField(child=serializers.CharField(), required=True)
+
+    class Meta:
+        model = CSVImportHistory
+        fields = ('file', 'update_existing', 'mass_unsubscribe', 'list', 'workspace', 'mapping')

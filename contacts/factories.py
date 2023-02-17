@@ -25,7 +25,7 @@ class ListFactory(factories.BaseWorkspaceFactory):
     name = factory.Sequence(lambda n: 'List %d' % n)
     description = fuzzy.FuzzyText(length=100)
     contacts = factories.RelatedFactoryVariableList('contacts.factories.ContactInListFactory', 'list')
-    optin_choice = fuzzy.FuzzyChoice(models.List.OPTIN_CHOICES)
+    optin_choice = fuzzy.FuzzyChoice(["single", "double"])
 
 
 class ContactInListFactory(factories.BaseWorkspaceFactory):
@@ -34,4 +34,13 @@ class ContactInListFactory(factories.BaseWorkspaceFactory):
 
     contact = factory.SubFactory('contacts.factories.ContactFactory')
     list = factory.SubFactory('contacts.factories.ListFactory')
+    workspace = factory.SelfAttribute('..workspace')
+
+
+class CustomFieldFactory(factories.BaseWorkspaceFactory):
+    class Meta:
+        model = models.CustomField
+
+    name = factory.Sequence(lambda n: 'CustomField %d' % n)
+    type = fuzzy.FuzzyChoice(models.CustomField.FIELD_TYPES)
     workspace = factory.SelfAttribute('..workspace')
