@@ -15,17 +15,18 @@ class ContactViewSet(WorkspaceViewset):
     """
     Perform all CRUD actions on Contacts objects.
 
-     - /api/contacts/?workspace_id=XXX (GET): List all contacts of a workspace.
-     - /api/contacts/ (POST): Create a new contact.
-     - /api/contacts/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific contact.
+     - ✔️ /api/contacts/?workspace_id=XXX (GET): List all contacts of a workspace.
+     - ✔️ /api/contacts/ (POST): Create a new contact.
+     - ✔️ /api/contacts/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific contact.
 
      Custom actions:
      - /api/contacts/<pk>/set-custom-field-value/ (POST): Set custom field value of a Contact.
      - /api/contacts/<pk>/unsub_from_list/<list_pk> (POST): Unsub a contact from a specific list.
      - /api/contacts/<pk>/lists/ (GET): Get all lists a Contact belongs to.
-     - /api/contacts/bulk-import/ (POST): Bulk import contacts from csv file.
+     - ✔️ /api/contacts/bulk-import/ (POST): Bulk import contacts from csv file.
      TODO:
     - /api/contacts/<pk>/history/ (GET) : List recent events, pages, and emails activities of a contact.
+    - /api/contacts/<pk>/get-custom-fields/ (GET) : List custom_fields values.
 
     """
 
@@ -83,9 +84,9 @@ class CustomFieldViewSet(WorkspaceViewset):
     """
     Perform all CRUD actions on CustomField objects.
 
-     - /api/custom-fields/?workspace_id=XXX (GET): List all custom fields of a workspace.
-     - /api/custom-fields/ (POST): Create a new custom field.
-     - /api/custom-fields/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific custom field.
+     - ✔️ /api/custom-fields/?workspace_id=XXX (GET): List all custom fields of a workspace.
+     - ✔️ /api/custom-fields/ (POST): Create a new custom field.
+     - ✔️ /api/custom-fields/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific custom field.
     """
 
     base_model_class = models.CustomField
@@ -99,9 +100,9 @@ class ListViewSet(WorkspaceViewset, NestedViewSetMixin):
     """
     Perform all CRUD actions on List objects.
 
-     - /api/lists/?workspace_id=XXX (GET): List all lists of a workspace.
-     - /api/lists/ (POST): Create a new list.
-     - /api/lists/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific list.
+     - ✔️ /api/lists/?workspace_id=XXX (GET): List all lists of a workspace.
+     - ✔️ /api/lists/ (POST): Create a new list.
+     - ✔️ /api/lists/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific list.
 
      Custom actions:
      - /api/lists/<pk>/unsubscribed_contacts/ (GET): List of all unsubscribed contacts of a list.
@@ -145,7 +146,7 @@ class NestedContactInListViewSet(WorkspaceViewset, NestedViewSetMixin):
      - /api/lists/<list_id>/contacts/<pk>/ (DELETE): Remove a contact from a list.
 
      Custom actions:
-     - /api/lists/<list_id>/contacts/csv-import/ (POST): Import Contacts into a List from .csv file.
+     -
     """
 
     base_model_class = models.ContactInList
@@ -160,17 +161,6 @@ class NestedContactInListViewSet(WorkspaceViewset, NestedViewSetMixin):
     search_fields = ("contact__email",)
     ordering_fields = ("created_at", "contact__email")
     filterset_fields = ("list",)
-
-    @action(detail=False, methods=['post'], serializer_class=serializers.ContactCSVImportSerializer)
-    def csv_import(self, request, pk):
-        """Import Contacts into a List from .csv file."""
-        # TODO: à tester/corriger
-        list_obj = List.objects.get(pk=self.kwargs["parent_lookup_lists"])
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(list=list_obj)
-        tasks.do_csv_import.delay(serializer.instance.id)
-        return Response(status=status.HTTP_200_OK, data={"status": "Contacts imported."})
 
 
 class SegmentViewset(WorkspaceViewset, NestedViewSetMixin):

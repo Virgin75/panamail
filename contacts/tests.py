@@ -3,8 +3,8 @@ from io import BytesIO
 import pytest
 from django.urls import reverse
 
-from .factories import ListFactory, CustomFieldFactory
-from .models import Contact, ContactInList, CSVImportHistory, CustomFieldOfContact
+from .factories import ListFactory, CustomFieldFactory, ContactFactory
+from .models import Contact, ContactInList, CSVImportHistory, CustomFieldOfContact, CustomField
 
 
 @pytest.mark.django_db
@@ -90,7 +90,12 @@ def test_bulk_import_contacts_in_list(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_list_contacts_in_list(auth_client, workspace, workspace_member, user, list, contacts):
+def test_list_contacts_in_list(auth_client, workspace):
+    list = ListFactory.create(
+        workspace=workspace,
+        contacts__size=3,
+    )
+
     url = reverse(
         "contacts:lists-contacts-list",
         kwargs={'parent_lookup_lists': list.id}
@@ -98,17 +103,18 @@ def test_list_contacts_in_list(auth_client, workspace, workspace_member, user, l
     response = auth_client.get(url, {'workspace_id': workspace.id})
     res = response.json()
     assert response.status_code == 200
-    assert res['count'] == len(contacts)
-    assert res['results'][0]['contact']['email'] in [contact.email for contact in contacts]
+    assert res['count'] == 3
+    assert res['results'][0]['contact']['email'] in [contact.email for contact in Contact.objects.all()]
 
 
 @pytest.mark.django_db
-def test_add_contact_to_list(auth_client, workspace, workspace_member, user, list, contacts):
+def test_add_contact_to_list(auth_client, workspace):
+    list = ListFactory.create(workspace=workspace, contacts__size=1)
     url = reverse(
         "contacts:lists-contacts-list",
         kwargs={'parent_lookup_lists': list.id}
     )
-    contact = Contact.objects.create(workspace=workspace, email="jjj@fff.fr")
+    contact = ContactFactory(workspace=workspace)
     payload = {
         'contact': contact.id,
         'workspace': workspace.id,
@@ -121,14 +127,143 @@ def test_add_contact_to_list(auth_client, workspace, workspace_member, user, lis
 
 
 @pytest.mark.django_db
-def test_remove_contact_from_list(auth_client, workspace, workspace_member, user, list, contacts):
+def test_remove_contact_from_list(auth_client, workspace):
+    list = ListFactory.create(workspace=workspace, contacts__size=1)
+    contact = Contact.objects.first()
+
     url = reverse(
         "contacts:lists-contacts-detail",
-        kwargs={'parent_lookup_lists': list.id, 'pk': contacts[0].id}
+        kwargs={'parent_lookup_lists': list.id, 'pk': contact.id}
     )
     response = auth_client.delete(url)
     assert response.status_code == 204
-    assert ContactInList.objects.filter(contact=contacts[0], list=list).count() == 0
+    assert ContactInList.objects.filter(contact=contact, list=list).count() == 0
+
+
+# TODO: add tests for Contact & Customfield
+
+
+@pytest.mark.django_db
+def test_create_contact(auth_client, workspace):
+    url = reverse("contacts:contacts-list")
+    payload = {
+        'email': 'test3@gmail.com',
+        'workspace': workspace.id
+    }
+    response = auth_client.post(url, payload)
+    res = response.json()
+    assert response.status_code == 201
+    assert res['email'] == 'test3@gmail.com'
+    assert res['manual_email_status'] == 'SUB'
+
+
+@pytest.mark.django_db
+def test_list_contacts(auth_client, workspace):
+    ContactFactory.create_batch(3, workspace=workspace)
+    url = reverse("contacts:contacts-list")
+    response = auth_client.get(url, {'workspace_id': workspace.id})
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 3
+    assert res['results'][0]['email'] in [contact.email for contact in Contact.objects.all()]
+
+
+@pytest.mark.django_db
+def test_retrieve_contact(auth_client, workspace):
+    contact = ContactFactory.create(workspace=workspace)
+    url = reverse("contacts:contacts-detail", kwargs={'pk': contact.id})
+    response = auth_client.get(url)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['email'] == contact.email
+    assert res["first_name"] == contact.first_name
+    assert res["last_name"] == contact.last_name
+    assert res["workspace"] == str(workspace.id)
+
+
+@pytest.mark.django_db
+def test_update_contact(auth_client, workspace):
+    contact = ContactFactory.create(workspace=workspace)
+    url = reverse("contacts:contacts-detail", kwargs={'pk': contact.id})
+    payload = {
+        'first_name': 'test',
+        'last_name': 'test',
+    }
+    response = auth_client.patch(url, payload)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['first_name'] == 'test'
+    assert res['last_name'] == 'test'
+
+
+@pytest.mark.django_db
+def test_delete_contact(auth_client, workspace):
+    contact = ContactFactory.create(workspace=workspace)
+    url = reverse("contacts:contacts-detail", kwargs={'pk': contact.id})
+    response = auth_client.delete(url)
+    assert response.status_code == 204
+    assert Contact.objects.filter(id=contact.id).count() == 0
+
+
+@pytest.mark.django_db
+def test_create_custom_field(auth_client, workspace):
+    url = reverse("contacts:custom-fields-list")
+    payload = {
+        'name': 'age',
+        'workspace': workspace.id,
+        'type': 'int'
+    }
+    response = auth_client.post(url, payload)
+    res = response.json()
+    assert response.status_code == 201
+    assert res['name'] == 'age'
+    assert res['workspace'] == str(workspace.id)
+    assert res['type'] == 'int'
+
+
+@pytest.mark.django_db
+def test_list_custom_fields(auth_client, workspace):
+    CustomFieldFactory.create_batch(3, workspace=workspace)
+    url = reverse("contacts:custom-fields-list")
+    response = auth_client.get(url, {'workspace_id': workspace.id})
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 3
+    assert res['results'][0]['name'] in [custom_field.name for custom_field in CustomField.objects.all()]
+
+
+@pytest.mark.django_db
+def test_retrieve_custom_field(auth_client, workspace):
+    custom_field = CustomFieldFactory.create(workspace=workspace)
+    url = reverse("contacts:custom-fields-detail", kwargs={'pk': custom_field.id})
+    response = auth_client.get(url)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['name'] == custom_field.name
+    assert res["workspace"] == str(workspace.id)
+    assert res["type"] == custom_field.type
+
+
+@pytest.mark.django_db
+def test_update_custom_field(auth_client, workspace):
+    custom_field = CustomFieldFactory.create(workspace=workspace)
+    url = reverse("contacts:custom-fields-detail", kwargs={'pk': custom_field.id})
+    payload = {
+        'name': 'age',
+    }
+    response = auth_client.patch(url, payload)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['name'] == 'age'
+
+
+@pytest.mark.django_db
+def test_delete_custom_field(auth_client, workspace):
+    custom_field = CustomFieldFactory.create(workspace=workspace)
+    url = reverse("contacts:custom-fields-detail", kwargs={'pk': custom_field.id})
+    response = auth_client.delete(url)
+    assert response.status_code == 204
+    assert CustomField.objects.filter(id=custom_field.id).count() == 0
 
 
 """

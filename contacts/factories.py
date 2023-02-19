@@ -42,5 +42,5 @@ class CustomFieldFactory(factories.BaseWorkspaceFactory):
         model = models.CustomField
 
     name = factory.Sequence(lambda n: 'CustomField %d' % n)
-    type = fuzzy.FuzzyChoice(models.CustomField.FIELD_TYPES)
+    type = fuzzy.FuzzyChoice(["str", "int", "bool", "date"])
     workspace = factory.SelfAttribute('..workspace')
