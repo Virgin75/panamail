@@ -1,15 +1,16 @@
-from celery.utils.log import get_task_logger
-from django.shortcuts import get_object_or_404
-from panamail import celery_app
 import boto3
 from botocore.config import Config
+from celery.utils.log import get_task_logger
 from django.conf import settings
+from django.shortcuts import get_object_or_404
+from django_rq import job
+
 from emails.models import SenderDomain
 
 logger = get_task_logger(__name__)
 
 
-@celery_app.task(name="check_domain_status")
+@job
 def check_domain_status(domain_name):
     logger.info(f'Domain is: {domain_name}')
 

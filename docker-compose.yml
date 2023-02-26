@@ -1,48 +1,17 @@
 version: "3.3"
 
 services:
-
-  web:
-    build: .
-    command: >
-      sh -c "python3 manage.py makemigrations users &&
-             python3 manage.py makemigrations emails &&
-             python3 manage.py makemigrations contacts &&
-             python3 manage.py makemigrations campaigns &&
-             python3 manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
-    restart: "on-failure"
   
   redis:
     image: redis:6.2.6
     ports:
       - "6379:6379"
-    depends_on:
-      - web
-  
-  celery:
+
+  rq_workers:
     build: .
-    command: celery -A panamail worker -l INFO
-    volumes:
-      - .:/app
-    restart: "on-failure"
+    command: python manage.py rqworker --with-scheduler
     depends_on:
       - redis
-      - web
-  
-  celerybeat:
-    build: .
-    command: celery -A panamail beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
-    volumes:
-      - .:/app
-    restart: "on-failure"
-    depends_on:
-      - redis
-      - web
 
   postgres_test:
     image: postgres
@@ -50,6 +19,6 @@ services:
     ports:
       - 5432:5432
     environment:
-      POSTGRES_USER: username # The PostgreSQL user (useful to connect to the database)
-      POSTGRES_PASSWORD: password # The PostgreSQL password (useful to connect to the database)
-      POSTGRES_DB: default_database # The PostgreSQL default database (automatically created at first launch)
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: default_database

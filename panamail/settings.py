@@ -16,10 +16,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+TESTING = bool(os.environ.get('TESTING', True))
+ENV = bool(os.environ.get('ENV', 'local'))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -50,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_filters',
     'django_celery_beat',
+    "django_rq",
     'drf_spectacular',
     'commons',
     'users',
@@ -182,16 +184,19 @@ CORS_ALLOW_CREDENTIALS = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.CustomUser'
 
-# CELERY STUFF
-BROKER_URL = 'redis://redis:6379'
-CELERY_RESULT_BACKEND = 'redis://redis:6379'
-CELERY_ACCEPT_CONTENT = ['application/json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_ENABLE_UTC = False
-CELERY_ALWAYS_EAGER = True
+# DJANGO-RQ
+RQ_QUEUES = {
+    'default': {
+        'HOST': 'redis',
+        'PORT': 6379,
+        'DEFAULT_TIMEOUT': 360,
+    }
+}
+if TESTING:
+    for queueConfig in RQ_QUEUES.values():
+        queueConfig['ASYNC'] = False
 
-#AWS STUFF
+# AWS STUFF
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', default="null")
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', default="null")
 AWS_REGION_NAME = os.getenv('AWS_SECRET_ACCESS_KEY', default="eu-west-3")

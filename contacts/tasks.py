@@ -3,6 +3,7 @@ import io
 
 import psycopg2
 from celery.utils.log import get_task_logger
+from django_rq import job
 
 from panamail import celery_app
 from .encryption_util import decrypt
@@ -44,7 +45,7 @@ def sync_contacts_from_db(sync_db_id, rule_id):
     return
 
 
-@celery_app.task(name="do_csv_import")
+@job
 def do_csv_import(import_task_id):
     """Async task that import Contacts into a specific List."""
     created_contacts = 0
@@ -162,7 +163,7 @@ def do_csv_import(import_task_id):
     return
 
 
-@celery_app.task(name="compute_segment_members")
+@job
 def compute_segment_members(segment_id):
     # Get all Segment members given a Segment id. Triggered when a segment is created or updated
     
@@ -177,7 +178,7 @@ def compute_segment_members(segment_id):
         segment=segment
     ).exclude(contact_id__in=new_contacts.values_list('id', flat=True))
     contacts_to_delete.delete()
-  
+
     # Add new Contacts to the Segment
     for contact in new_contacts:
         cs, created = ContactInSegment.objects.get_or_create(
@@ -185,10 +186,11 @@ def compute_segment_members(segment_id):
             segment=segment
         )
 
-@celery_app.task(name="compute_contact_segments")
+
+@job
 def compute_contact_segments(contact_id):
     # Update a Contact Segments membership. Triggered when any Contact info is updated (field change, new event, new page, new list membership...)
-   
+
     contact = Contact.objects.get(id=contact_id)
     workspace = contact.workspace
     segments = workspace.segments.all()

@@ -1,10 +1,11 @@
-from panamail import celery_app
-from celery.utils.log import get_task_logger
-from .models import Campaign
-from jinja2 import Template
 import boto3
 from botocore.exceptions import ClientError
+from celery.utils.log import get_task_logger
 from django.conf import settings
+from django_rq import job
+from jinja2 import Template
+
+from .models import Campaign
 
 logger = get_task_logger(__name__)
 
@@ -61,7 +62,6 @@ def send_email_ses(**kwargs):
         print("Email sent! Message ID:"),
         print(response['MessageId'])
 
-
 def prep_email_sending(recipient, campaign):
     sender_email = campaign.sender.email_address
     sender_name = campaign.sender.name
@@ -96,7 +96,7 @@ def prep_email_sending(recipient, campaign):
     print(content)
 
 
-@celery_app.task(name="send_campaign")
+@job
 def send_campaign(campaign_id):
     """Send a campaign immediately"""
     campaign = Campaign.objects.get(id=campaign_id)

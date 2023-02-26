@@ -1,5 +1,7 @@
+import django_rq
 import pytest
 from django.contrib.auth import get_user_model
+from fakeredis import FakeStrictRedis, FakeRedis
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -180,4 +182,17 @@ def auth_client(db, user, workspace, workspace_member):
     client = APIClient()
     token = RefreshToken.for_user(user)
     client.credentials(HTTP_AUTHORIZATION='Bearer ' + str(token.access_token))
+    django_rq.queues.get_redis_connection = FakeRedisConn()
     return client
+
+
+class FakeRedisConn:
+    """Singleton FakeRedis connection."""
+
+    def __init__(self):
+        self.conn = None
+
+    def __call__(self, _, strict):
+        if not self.conn:
+            self.conn = FakeStrictRedis() if strict else FakeRedis()
+        return self.conn

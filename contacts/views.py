@@ -26,7 +26,7 @@ class ContactViewSet(WorkspaceViewset):
      - ✔️ /api/contacts/bulk-import/ (POST): Bulk import contacts from csv file.
      TODO:
     - /api/contacts/<pk>/history/ (GET) : List recent events, pages, and emails activities of a contact.
-    - /api/contacts/<pk>/get-custom-fields/ (GET) : List custom_fields values.
+    - /api/contacts/<pk>/get-all-fields-value/ (GET) : List custom_fields values.
 
     """
 
