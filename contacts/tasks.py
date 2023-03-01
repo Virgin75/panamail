@@ -1,20 +1,19 @@
 import csv
 import io
+import logging
 
 import psycopg2
-from celery.utils.log import get_task_logger
 from django_rq import job
 
-from panamail import celery_app
 from .encryption_util import decrypt
 from .models import Contact, CustomField, CustomFieldOfContact
 from .models import ContactInSegment, CSVImportHistory, DatabaseToSync, DatabaseRule, Segment
 from .utils import retrieve_segment_members
 
-logger = get_task_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
-@celery_app.task(name="sync_contacts_from_db")
+@job
 def sync_contacts_from_db(sync_db_id, rule_id):
     db = DatabaseToSync.objects.get(id=sync_db_id)
     rule = DatabaseRule.objects.get(id=rule_id)

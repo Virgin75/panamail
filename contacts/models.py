@@ -2,7 +2,6 @@ import uuid
 
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
-from django_celery_beat.models import PeriodicTask, IntervalSchedule
 
 from commons.models import BaseWorkspace, Tag
 from users.models import Workspace, CustomUser
@@ -295,6 +294,6 @@ class DatabaseRule(models.Model):
     query = models.TextField()
     column_mapping = models.TextField(null=True)
     list = models.ForeignKey(List, on_delete=models.SET_NULL, null=True)
-    beat_task = models.ForeignKey(PeriodicTask, on_delete=models.SET_NULL, null=True)
+    # beat_task = models.ForeignKey(PeriodicTask, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, null=True)

@@ -1,14 +1,14 @@
+import logging
+
 import boto3
 from botocore.config import Config
-from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django_rq import job
 
 from emails.models import SenderDomain
 
-logger = get_task_logger(__name__)
-
+logger = logging.getLogger(__name__)
 
 @job
 def check_domain_status(domain_name):

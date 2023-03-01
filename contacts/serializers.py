@@ -21,6 +21,19 @@ class ContactSerializer(serializers.ModelSerializer, WksFieldsSerializer):
         read_only_fields = ['created_at', 'created_by']
 
 
+class ContactSerializerWithCustomFields(serializers.ModelSerializer, WksFieldsSerializer):
+    custom_fields = serializers.SerializerMethodField(read_only=True)
+
+    def get_custom_fields(self, obj):  # noqa
+        cf = CustomFieldOfContact.objects.filter(contact=obj)
+        return CustomFieldOfContactSerializer(cf, many=True).data
+
+    class Meta:
+        model = Contact
+        fields = '__all__'
+        read_only_fields = ['created_at', 'created_by']
+
+
 class CustomFieldSerializer(serializers.ModelSerializer, WksFieldsSerializer):
     class Meta:
         model = CustomField
@@ -29,13 +42,18 @@ class CustomFieldSerializer(serializers.ModelSerializer, WksFieldsSerializer):
 
 
 class CustomFieldOfContactSerializer(serializers.ModelSerializer):
-    custom_field = RestrictedPKRelatedField(many=True, read_serializer=CustomFieldSerializer, model=CustomField)
+    custom_field = RestrictedPKRelatedField(read_serializer=CustomFieldSerializer, model=CustomField)
+    value = serializers.SerializerMethodField(read_only=True)
+    value_str = serializers.CharField(required=False, write_only=True)
+    value_int = serializers.IntegerField(required=False, write_only=True)
+    value_bool = serializers.BooleanField(required=False, write_only=True)
+    value_date = serializers.DateTimeField(required=False, write_only=True)
 
     class Meta:
         model = CustomFieldOfContact
-        fields = ['custom_field', 'value_str', 'value_int', 'value_bool', 'value_date']
+        fields = ['custom_field', 'value', 'value_str', 'value_int', 'value_bool', 'value_date']
 
-    def get_value(self, obj):        
+    def get_value(self, obj):
         if obj.custom_field.type == 'str':
             return obj.value_str
         elif obj.custom_field.type == 'int':
@@ -104,6 +122,12 @@ class ConditionSerializer(serializers.ModelSerializer):
         model = Condition
         fields = '__all__'
         read_only_fields = ['created_at']
+
+
+class SegmentMinimalReadOnlySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Segment
+        fields = ('id', 'name')
 
 
 class SegmentReadOnlySerializer(serializers.ModelSerializer, WksFieldsSerializer):

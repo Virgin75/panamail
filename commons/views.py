@@ -107,7 +107,7 @@ class WorkspaceViewset(viewsets.ModelViewSet):
             workspace_id = self.get_object().workspace.id
             context["workspace"] = workspace_id
 
-        elif self.action in ("create", "bulk_import"):
+        elif self.action in ("create", "bulk_import", "set_custom_field_value"):
             workspace_id = self.request.data.get("workspace")
             context["workspace"] = workspace_id
 

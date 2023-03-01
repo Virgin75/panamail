@@ -3,7 +3,8 @@ from io import BytesIO
 import pytest
 from django.urls import reverse
 
-from .factories import ListFactory, CustomFieldFactory, ContactFactory
+from .factories import ListFactory, CustomFieldFactory, ContactFactory, ContactInListFactory, \
+    CustomFieldOfContactFactory, SegmentFactory
 from .models import Contact, ContactInList, CSVImportHistory, CustomFieldOfContact, CustomField
 
 
@@ -140,9 +141,6 @@ def test_remove_contact_from_list(auth_client, workspace):
     assert ContactInList.objects.filter(contact=contact, list=list).count() == 0
 
 
-# TODO: add tests for Contact & Customfield
-
-
 @pytest.mark.django_db
 def test_create_contact(auth_client, workspace):
     url = reverse("contacts:contacts-list")
@@ -171,6 +169,13 @@ def test_list_contacts(auth_client, workspace):
 @pytest.mark.django_db
 def test_retrieve_contact(auth_client, workspace):
     contact = ContactFactory.create(workspace=workspace)
+    CustomFieldOfContactFactory.create(
+        contact=contact,
+        workspace=workspace,
+        custom_field=CustomFieldFactory.create(workspace=workspace, type='int'),
+        value_int=10
+    )
+
     url = reverse("contacts:contacts-detail", kwargs={'pk': contact.id})
     response = auth_client.get(url)
     res = response.json()
@@ -179,6 +184,7 @@ def test_retrieve_contact(auth_client, workspace):
     assert res["first_name"] == contact.first_name
     assert res["last_name"] == contact.last_name
     assert res["workspace"] == str(workspace.id)
+    assert res["custom_fields"][0]["value"] == 10
 
 
 @pytest.mark.django_db
@@ -203,6 +209,74 @@ def test_delete_contact(auth_client, workspace):
     response = auth_client.delete(url)
     assert response.status_code == 204
     assert Contact.objects.filter(id=contact.id).count() == 0
+
+
+@pytest.mark.django_db
+def test_get_lists_of_contact(auth_client, workspace):
+    contact = ContactFactory(workspace=workspace)
+    lists = ListFactory.create_batch(3, workspace=workspace)
+    [list.contacts.add(contact, through_defaults={"workspace": workspace}) for list in lists]
+
+    url = reverse("contacts:contacts-lists", kwargs={'pk': contact.id})
+    response = auth_client.get(url)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 3
+    for list in lists:
+        assert list.name in [item['name'] for item in res['results']]
+
+
+@pytest.mark.django_db
+def test_get_segments_of_contact(auth_client, workspace):
+    contact = ContactFactory(workspace=workspace)
+    segments = SegmentFactory.create_batch(3, workspace=workspace)
+    [segment.members.add(contact, through_defaults={"workspace": workspace}) for segment in segments]
+
+    url = reverse("contacts:contacts-segments", kwargs={'pk': contact.id})
+    response = auth_client.get(url)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 3
+    for segment in segments:
+        assert segment.name in [item['name'] for item in res['results']]
+
+
+@pytest.mark.django_db
+def test_unsubscribe_contact_from_list(auth_client, workspace):
+    contact = ContactFactory(workspace=workspace)
+    list = ListFactory.create(workspace=workspace)
+    ContactInListFactory.create(contact=contact, list=list, workspace=workspace)
+    url = reverse("contacts:contacts-unsub-from-list", kwargs={'pk': contact.id, 'list_pk': list.id})
+
+    response = auth_client.post(url)
+    res = response.json()
+    assert response.status_code == 200
+    assert res == {"status": "Contact unsubscribed from list."}
+    assert list.unsubscribed_contacts.get(id=contact.id) == contact
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("field_type", ["str", "bool", "int", "date"])
+def test_set_custom_field_value(auth_client, workspace, field_type):
+    contact = ContactFactory(workspace=workspace)
+    custom_field = CustomFieldFactory.create(type=field_type, workspace=workspace)
+    url = reverse("contacts:contacts-set-custom-field-value", kwargs={'pk': contact.id})
+    value = {
+        "str": "test",
+        "bool": True,
+        "int": 1,
+        "date": "2020-01-01"
+    }
+    payload = {
+        'custom_field': custom_field.id,
+        f'value_{field_type}': value[field_type],
+        'workspace': workspace.id
+    }
+    response = auth_client.post(url, payload)
+    res = response.json()
+    assert response.status_code == 201
+    assert res['custom_field']['name'] == custom_field.name
+    assert res['value'][:-10] == value[field_type] if field_type == 'date' else res['value'] == value[field_type]
 
 
 @pytest.mark.django_db
@@ -264,241 +338,3 @@ def test_delete_custom_field(auth_client, workspace):
     response = auth_client.delete(url)
     assert response.status_code == 204
     assert CustomField.objects.filter(id=custom_field.id).count() == 0
-
-
-"""
-# Test create a contact
-@pytest.mark.django_db
-def test_create_contact(auth_client, workspace, workspace_member, user):
-    response = auth_client.post('/contacts/contacts', {
-        'email': 'pedro.almodovar@gmail.com',
-        'workspace': workspace.id
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 201
-    assert resp_json['email'] == 'pedro.almodovar@gmail.com'
-    assert resp_json['manual_email_status'] == 'SUB'
-    assert resp_json['workspace'] == str(workspace.id)
-
-# Test list Contacts
-@pytest.mark.django_db
-def test_list_contacts(auth_client, workspace, contact, workspace_member, user):
-    response = auth_client.get(f'/contacts/contacts?workspace_id={workspace.id}')
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['count'] == 1
-    assert resp_json['results'][0]['email'] == contact.email
-
-
-# Test update a contact
-@pytest.mark.django_db
-def test_update_contact(auth_client, workspace, contact, workspace_member, user):
-    response = auth_client.patch(f'/contacts/contacts/{contact.id}', {
-        'manual_email_status': 'UNSUB'
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['email'] == contact.email
-    assert resp_json['manual_email_status'] == 'UNSUB'
-
-# Test delete a contact
-@pytest.mark.django_db
-def test_delete_contact(auth_client, workspace, contact, workspace_member, user):
-    response = auth_client.delete(f'/contacts/contacts/{contact.id}')
-    assert response.status_code == 204
-
-
-# Test create a custom field
-@pytest.mark.django_db
-def test_create_custom_field(auth_client, workspace, contact, workspace_member, user):
-    response = auth_client.post(f'/contacts/custom-fields', {
-        'type': 'int',
-        'name': 'login_count',
-        'workspace': str(workspace.id)
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 201
-    assert resp_json['name'] == 'login_count'
-    assert resp_json['workspace'] == str(workspace.id)
-
-# Test list Custom fields
-@pytest.mark.django_db
-def test_list_custom_fields(auth_client, workspace, contact, custom_field, workspace_member, user):
-    response = auth_client.get(f'/contacts/custom-fields?workspace_id={workspace.id}')
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json[0]['id'] == custom_field.id
-    assert resp_json[0]['workspace'] == str(workspace.id)
-
-# Test update a custom field
-@pytest.mark.django_db
-def test_update_custom_field(auth_client, workspace, contact, custom_field, workspace_member, user):
-    response = auth_client.patch(f'/contacts/custom-fields/{custom_field.id}', {
-        'name': 'New-Name'
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['name'] == 'New-Name'
-
-# Test delete a custom field
-@pytest.mark.django_db
-def test_delete_custom_field(auth_client, workspace, contact, custom_field, workspace_member, user):
-    response = auth_client.delete(f'/contacts/custom-fields/{custom_field.id}')
-    assert response.status_code == 204
-
-# Test set a Contact custom fields
-@pytest.mark.django_db
-def test_set_contact_custom_fields(auth_client, workspace, contact, custom_field, workspace_member, user):
-    response = auth_client.post(f'/contacts/contacts/{contact.id}/set-custom-fields', {
-        custom_field.id: 'My custom value',
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['status'] == 'All fields were updated successfully.'
-
-
-# Test create a list
-@pytest.mark.django_db
-def test_create_list(auth_client, workspace, contact, workspace_member, user):
-    response = auth_client.post(f'/contacts/lists', {
-        'name': 'Newsletter Client',
-        'workspace': str(workspace.id)
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 201
-    assert resp_json['name'] == 'Newsletter Client'
-    assert resp_json['workspace'] == str(workspace.id)
-
-# Test list lists
-@pytest.mark.django_db
-def test_list_lists(auth_client, workspace, list, contact, custom_field, workspace_member, user):
-    response = auth_client.get(f'/contacts/lists?workspace_id={workspace.id}')
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['count'] == 1
-    assert resp_json['results'][0]['id'] == str(list.id)
-
-
-# Test update a List
-@pytest.mark.django_db
-def test_update_list(auth_client, workspace, list, contact, custom_field, workspace_member, user):
-    response = auth_client.patch(f'/contacts/lists/{list.id}', {
-        'name': 'New-List-Name'
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['name'] == 'New-List-Name'
-
-# Test delete a list
-@pytest.mark.django_db
-def test_delete_list(auth_client, workspace, contact, list, custom_field, workspace_member, user):
-    response = auth_client.delete(f'/contacts/lists/{list.id}')
-    assert response.status_code == 204
-
-# Test list contacts in list
-@pytest.mark.django_db
-def test_list_contacts_in_list(auth_client, workspace, list, contact, contact_in_list, custom_field, workspace_member, user):
-    response = auth_client.get(f'/contacts/contacts-in-list?list_id={list.id}')
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['count'] == 1
-    assert resp_json['results'][0]['contact']['email'] == contact.email
-
-# Test add contact in list
-@pytest.mark.django_db
-def test_add_contact_in_list(auth_client, workspace, list, contact, workspace_member, user):
-    response = auth_client.post(f'/contacts/add-contact-in-list', {
-        'list': str(list.id),
-        'contact': str(contact.id)
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 201
-    assert resp_json['contact'] == str(contact.id)
-    assert resp_json['list'] == str(list.id)
-
-
-# Test delete a contact from list
-@pytest.mark.django_db
-def test_delete_contact_from_list(auth_client, workspace, contact, contact_in_list, list, custom_field, workspace_member, user):
-    response = auth_client.delete(f'/contacts/delete-contact-in-list/{contact_in_list.id}')
-    assert response.status_code == 204
-
-
-# Test create a Segment
-@pytest.mark.django_db
-def test_create_segment(auth_client, workspace, list, contact, workspace_member, user):
-    response = auth_client.post(f'/contacts/segments', {
-        'name': 'Active users',
-        'operator': 'AND',
-        'workspace': str(workspace.id)
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 201
-    assert resp_json['workspace'] == str(workspace.id)
-    assert resp_json['name'] == 'Active users'
-
-# Test list segments
-@pytest.mark.django_db
-def test_list_segments(auth_client, workspace, list, segment, contact, contact_in_list, custom_field, workspace_member, user):
-    response = auth_client.get(f'/contacts/segments?workspace_id={workspace.id}')
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json[0]['id'] == str(segment.id)
-
-
-# Test update a Segment
-@pytest.mark.django_db
-def test_update_segment(auth_client, workspace, list, segment, contact, custom_field, workspace_member, user):
-    response = auth_client.patch(f'/contacts/segments/{segment.id}', {
-        'operator': 'OR'
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['operator'] == 'OR'
-
-# Test delete a Segment
-@pytest.mark.django_db
-def test_delete_segment(auth_client, workspace, contact, list, segment, custom_field, workspace_member, user):
-    response = auth_client.delete(f'/contacts/segments/{segment.id}')
-    assert response.status_code == 204
-
-
-# Test create a Condition
-@pytest.mark.django_db
-def test_create_condition(auth_client, workspace, list, contact, segment, workspace_member, custom_field, user):
-    response = auth_client.post(f'/contacts/segments/{segment.id}/conditions', {
-        'condition_type': 'CUSTOM FIELD',
-        'custom_field': custom_field.id,
-        'check_type': 'IS NOT',
-        'input_value': 'Alberto'
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 201
-    assert resp_json['segment'] == str(segment.id)
-    assert resp_json['id'] is not None
-
-# Test list Conditions of a Segment
-@pytest.mark.django_db
-def test_list_conditions(auth_client, workspace, list, contact, segment, condition, workspace_member, custom_field, user):
-    response = auth_client.get(f'/contacts/segments/{segment.id}/conditions')
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json[0]['segment'] == str(segment.id)
-    assert resp_json[0]['id'] == condition.id
-
-
-# Test update a Condition
-@pytest.mark.django_db
-def test_update_segment(auth_client, workspace, list, segment, condition, custom_field, contact, workspace_member, user):
-    response = auth_client.patch(f'/contacts/segments-conditions/{condition.id}', {
-        'check_type': 'CONTAINS'
-    })
-    resp_json = json.loads(response.content)
-    assert response.status_code == 200
-    assert resp_json['check_type'] == 'CONTAINS'
-
-# Test delete a Condition
-@pytest.mark.django_db
-def test_delete_condition(auth_client, workspace, contact, list, segment, condition, custom_field, workspace_member, user):
-    response = auth_client.delete(f'/contacts/segments-conditions/{condition.id}')
-    assert response.status_code == 204"""

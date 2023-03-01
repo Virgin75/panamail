@@ -9,6 +9,7 @@ services:
 
   rq_workers:
     build: .
+    # TODO: create custom command to start the CRON tasks in settings.py
     command: python manage.py rqworker --with-scheduler
     depends_on:
       - redis

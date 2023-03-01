@@ -6,9 +6,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_extensions.mixins import NestedViewSetMixin
 
+from commons.models import History
 from commons.views import WorkspaceViewset
 from contacts import models, serializers, tasks
-from contacts.models import List, ContactInList, CSVImportHistory
+from contacts.models import List, ContactInList, CSVImportHistory, Segment
+from contacts.serializers import ContactSerializerWithCustomFields
 
 
 class ContactViewSet(WorkspaceViewset):
@@ -18,15 +20,16 @@ class ContactViewSet(WorkspaceViewset):
      - ✔️ /api/contacts/?workspace_id=XXX (GET): List all contacts of a workspace.
      - ✔️ /api/contacts/ (POST): Create a new contact.
      - ✔️ /api/contacts/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific contact.
+            > For GET endpoint: Also retrieve custom fields with their values.
 
      Custom actions:
-     - /api/contacts/<pk>/set-custom-field-value/ (POST): Set custom field value of a Contact.
-     - /api/contacts/<pk>/unsub_from_list/<list_pk> (POST): Unsub a contact from a specific list.
-     - /api/contacts/<pk>/lists/ (GET): Get all lists a Contact belongs to.
-     - ✔️ /api/contacts/bulk-import/ (POST): Bulk import contacts from csv file.
+     - ✔️ /api/contacts/<pk>/set-custom-field-value/ (POST): Set custom field value of a Contact.
+     - ✔️ /api/contacts/<pk>/unsub-from-list/<list_pk> (POST): Unsub a contact from a specific list.
+     - ✔️ /api/contacts/<pk>/lists/ (GET): Get all lists a Contact belongs to.
+     - ✔️ /api/contacts/<pk>/segments (POST): Get all segments a Contact belongs to.
+     - ✔️ /api/contacts/bulk-import/ (POST): Bulk import contacts from csv file (💻 Async processing).
      TODO:
     - /api/contacts/<pk>/history/ (GET) : List recent events, pages, and emails activities of a contact.
-    - /api/contacts/<pk>/get-all-fields-value/ (GET) : List custom_fields values.
 
     """
 
@@ -36,14 +39,20 @@ class ContactViewSet(WorkspaceViewset):
     search_fields = ("email", "first_name", "last_name")
     ordering_fields = ("created_at",)
 
+    def retrieve(self, request, *args, **kwargs):
+        """Override retrieve() to get a specific Contact with all its custom fields values."""
+        contact = self.get_object()
+        serializer = ContactSerializerWithCustomFields(contact)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['post'], serializer_class=serializers.CustomFieldOfContactSerializer)
     def set_custom_field_value(self, request, pk):
         """Set custom field value for a specific Contact."""
         contact = self.get_object()
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
-        custom_field_value = serializer.save(contact=contact)
-        contact.edit_history.add(edited_by=request.user)
+        custom_field_value = serializer.save(contact=contact, workspace=contact.workspace)
+        contact.edit_history.add(History.objects.create(edited_by=request.user))
         return Response(status=status.HTTP_201_CREATED, data=self.get_serializer(custom_field_value).data)
 
     @action(detail=True, methods=['get'], serializer_class=serializers.ListSerializer)
@@ -51,12 +60,21 @@ class ContactViewSet(WorkspaceViewset):
         """Get all lists a Contact belongs to."""
         contact = self.get_object()
         lists = List.objects.filter(contacts=contact)
-        return Response(status=status.HTTP_200_OK, data=self.get_serializer(lists).data)
+        page = self.paginate_queryset(lists)
+        return self.get_paginated_response(self.get_serializer(page, many=True).data)
 
-    @action(detail=True, methods=['post'])
-    def unsub_from_list(self, request, pk, list_pk):
+    @action(detail=True, methods=['get'], serializer_class=serializers.SegmentMinimalReadOnlySerializer)
+    def segments(self, request, pk):
+        """Get all segments a Contact belongs to."""
+        contact = self.get_object()
+        segments = Segment.objects.filter(members=contact)
+        page = self.paginate_queryset(segments)
+        return self.get_paginated_response(self.get_serializer(page, many=True).data)
+
+    @action(detail=True, methods=['post'], url_path='unsub-from-list/(?P<list_pk>[^/.]+)')
+    def unsub_from_list(self, request, **kwargs):
         """Mark a contact as unsubscribed from a specific list."""
-        list_obj = List.objects.get(pk=list_pk)
+        list_obj = List.objects.get(pk=kwargs.get('list_pk'))
         list_obj.unsubscribed_contacts.add(self.get_object())
         return Response(status=status.HTTP_200_OK, data={"status": "Contact unsubscribed from list."})
 

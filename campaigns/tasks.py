@@ -1,13 +1,14 @@
+import logging
+
 import boto3
 from botocore.exceptions import ClientError
-from celery.utils.log import get_task_logger
 from django.conf import settings
 from django_rq import job
 from jinja2 import Template
 
 from .models import Campaign
 
-logger = get_task_logger(__name__)
+logger = logging.getLogger(__name__)
 
 #TODO: DO NOT SEND TO UNSUBS
 #TODO: Define ConfigSet to track Emails actions
