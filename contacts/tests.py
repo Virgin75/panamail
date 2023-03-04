@@ -4,8 +4,9 @@ import pytest
 from django.urls import reverse
 
 from .factories import ListFactory, CustomFieldFactory, ContactFactory, ContactInListFactory, \
-    CustomFieldOfContactFactory, SegmentFactory
-from .models import Contact, ContactInList, CSVImportHistory, CustomFieldOfContact, CustomField
+    CustomFieldOfContactFactory, SegmentFactory, GroupOfConditionsFactory, ConditionFactory, ContactInSegmentFactory
+from .models import Contact, ContactInList, CSVImportHistory, CustomFieldOfContact, CustomField, Segment, \
+    Condition
 
 
 @pytest.mark.django_db
@@ -109,7 +110,67 @@ def test_list_contacts_in_list(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_add_contact_to_list(auth_client, workspace):
+def test_list_unsub_contacts_in_list(auth_client, workspace):
+    list = ListFactory.create(
+        workspace=workspace,
+        contacts__size=3,
+    )
+    contact = Contact.objects.first()
+    list.unsubscribed_contacts.add(contact)
+
+    url = reverse(
+        "contacts:lists-unsubscribed-contacts",
+        kwargs={'pk': list.id}
+    )
+    response = auth_client.get(url)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 1
+    assert res['results'][0]['email'] == contact.email
+
+
+@pytest.mark.django_db
+def test_list_double_optin_token_validation(auth_client, workspace):
+    list = ListFactory.create(
+        workspace=workspace,
+        optin_choice="double",
+        contacts__size=1,
+    )
+    contact = Contact.objects.first()
+    validation_token = ContactInList.objects.first().double_optin_token
+
+    url = reverse(
+        "contacts:lists-double-optin",
+        kwargs={'pk': list.id, "validation_token": validation_token}
+    )
+    response = auth_client.get(url, {'email': contact.email})
+    res = response.json()
+    assert response.status_code == 200
+    assert res == {"status": f"Subscription to the list {list.id} confirmed."}
+    assert ContactInList.objects.first().double_optin_validate_date is not None
+
+
+@pytest.mark.django_db
+def test_list_all_contacts_of_list(auth_client, workspace):
+    list = ListFactory.create(
+        workspace=workspace,
+        contacts__size=3,
+    )
+    url = reverse(
+        "contacts:lists-contacts-list",
+        kwargs={'parent_lookup_lists': list.id}
+    )
+    response = auth_client.get(url, {'workspace_id': workspace.id})
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 3
+    res_contacts = [contact['contact']['email'] for contact in res['results']]
+    expected_contacts = [contact.email for contact in Contact.objects.all()]
+    assert res_contacts == expected_contacts
+
+
+@pytest.mark.django_db
+def test_add_existing_contact_to_list(auth_client, workspace):
     list = ListFactory.create(workspace=workspace, contacts__size=1)
     url = reverse(
         "contacts:lists-contacts-list",
@@ -125,6 +186,7 @@ def test_add_contact_to_list(auth_client, workspace):
     assert response.status_code == 201
     assert res['contact']['email'] == contact.email
     assert res['list']['name'] == list.name
+    assert list.contacts.count() == 2
 
 
 @pytest.mark.django_db
@@ -255,6 +317,13 @@ def test_unsubscribe_contact_from_list(auth_client, workspace):
     assert list.unsubscribed_contacts.get(id=contact.id) == contact
 
 
+"""
+------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------CUSTOM FIELDS TESTS-------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
+"""
+
+
 @pytest.mark.django_db
 @pytest.mark.parametrize("field_type", ["str", "bool", "int", "date"])
 def test_set_custom_field_value(auth_client, workspace, field_type):
@@ -338,3 +407,262 @@ def test_delete_custom_field(auth_client, workspace):
     response = auth_client.delete(url)
     assert response.status_code == 204
     assert CustomField.objects.filter(id=custom_field.id).count() == 0
+
+
+"""
+------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------SEGMENTS TESTS------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
+"""
+
+
+@pytest.mark.django_db
+def test_list_segments(auth_client, workspace, workspace2):
+    segments = SegmentFactory.create_batch(3, workspace=workspace)
+    SegmentFactory.create_batch(2, workspace=workspace2)
+
+    url = reverse("contacts:segments-list")
+    response = auth_client.get(url, {'workspace_id': workspace.id})
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 3
+    res_segments = [segment['name'] for segment in res['results']]
+    expected_segments = [segment.name for segment in segments]
+    assert expected_segments == res_segments
+
+
+@pytest.mark.django_db
+def test_create_segment(auth_client, workspace):
+    url = reverse("contacts:segments-list")
+    payload = {
+        'name': 'Recurrent customers',
+        'description': 'Customers who have bought more than 3 times',
+        'operator': 'AND',
+        'workspace': workspace.id,
+    }
+    response = auth_client.post(url, payload)
+    res = response.json()
+    assert response.status_code == 201
+    assert res['name'] == 'Recurrent customers'
+    assert res['description'] == 'Customers who have bought more than 3 times'
+    assert res['workspace'] == str(workspace.id)
+    assert res['operator'] == 'AND'
+
+
+@pytest.mark.django_db
+def test_update_segment(auth_client, workspace, workspace2):
+    segment = SegmentFactory.create(workspace=workspace)
+    url = reverse("contacts:segments-detail", kwargs={'pk': segment.id})
+    payload = {
+        'description': 'New description',
+    }
+    response = auth_client.patch(url, payload)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['description'] == 'New description'
+
+    # Test updating a Segment form a Workspace you don't belong to
+    segment2 = SegmentFactory.create(workspace=workspace2)
+    url = reverse("contacts:segments-detail", kwargs={'pk': segment2.id})
+    response = auth_client.patch(url, payload)
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_delete_segment(auth_client, workspace, workspace2):
+    segment = SegmentFactory.create(workspace=workspace)
+    url = reverse("contacts:segments-detail", kwargs={'pk': segment.id})
+    response = auth_client.delete(url)
+    assert response.status_code == 204
+    assert Segment.objects.filter(id=segment.id).count() == 0
+
+    # Test deleting a Segment form a Workspace you don't belong to
+    segment2 = SegmentFactory.create(workspace=workspace2)
+    url = reverse("contacts:segments-detail", kwargs={'pk': segment2.id})
+    response = auth_client.delete(url)
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_retrieve_segment(auth_client, workspace):
+    segment = SegmentFactory.create(workspace=workspace)
+    groups = GroupOfConditionsFactory.create_batch(2, segment=segment, workspace=workspace)
+    for group in groups:
+        ConditionFactory.create_batch(2, group=group, workspace=workspace)
+
+    url = reverse("contacts:segments-detail", kwargs={'pk': segment.id})
+    response = auth_client.get(url)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['name'] == segment.name
+    assert res['operator'] == segment.operator
+    assert len(res['conditions']) == 2  # 2 groups of conditions
+    assert res['conditions'][0]['operator'] == groups[0].operator
+    assert res['conditions'][1]['operator'] == groups[1].operator
+    assert len(res['conditions'][0]['conditions']) == 2  # 2 conditions in the first group
+    assert len(res['conditions'][1]['conditions']) == 2  # 2 conditions in the second group
+
+
+@pytest.mark.django_db
+def test_retrieve_segment_with_contacts(auth_client, workspace, workspace2):
+    segment = SegmentFactory.create(workspace=workspace)
+    contacts = ContactFactory.create_batch(3, workspace=workspace)
+    for contact in contacts:
+        ContactInSegmentFactory.create(segment=segment, contact=contact, workspace=workspace)
+
+    url = reverse("contacts:segments-contacts", kwargs={'pk': segment.id})
+    response = auth_client.get(url)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['count'] == 3
+    res_contacts = [contact['id'] for contact in res['results']]
+    expected_contacts = [str(contact.id) for contact in contacts]
+    assert expected_contacts == res_contacts
+
+    # Test retrieving a Segment members form a Workspace you don't belong to
+    segment2 = SegmentFactory.create(workspace=workspace2)
+    contacts = ContactFactory.create_batch(3, workspace=workspace2)
+    for contact in contacts:
+        ContactInSegmentFactory.create(segment=segment2, contact=contact, workspace=workspace2)
+    url = reverse("contacts:segments-contacts", kwargs={'pk': segment2.id})
+    response = auth_client.get(url)
+    assert response.status_code == 403
+
+
+"""
+------------------------------------------------------------------------------------------------------------------------
+------------------------------------------SEGMENT GROUP & CONDITION TESTS-----------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
+"""
+
+
+@pytest.mark.django_db
+def test_create_segment_group(auth_client, workspace):
+    segment = SegmentFactory.create(workspace=workspace)
+    url = reverse("contacts:segments-groups-list", kwargs={
+        'parent_lookup_segments': segment.id
+    })
+    payload = {
+        'operator': 'OR',
+        'segment': segment.id,
+        'workspace': workspace.id,
+    }
+    response = auth_client.post(url, payload)
+    res = response.json()
+    assert response.status_code == 201
+    assert res['operator'] == 'OR'
+    assert res['segment']['id'] == str(segment.id)
+
+
+@pytest.mark.django_db
+def test_update_segment_group(auth_client, workspace):
+    segment = SegmentFactory.create(workspace=workspace)
+    group = GroupOfConditionsFactory.create(segment=segment, workspace=workspace, operator='OR')
+    url = reverse("contacts:segments-groups-detail", kwargs={
+        'parent_lookup_segments': segment.id,
+        'pk': group.id
+    })
+    payload = {
+        'operator': 'AND',
+    }
+    response = auth_client.patch(url, payload)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['operator'] == 'AND'
+
+
+@pytest.mark.django_db
+def test_delete_segment_group(auth_client, workspace, workspace2):
+    segment = SegmentFactory.create(workspace=workspace)
+    group = GroupOfConditionsFactory.create(segment=segment, workspace=workspace)
+    url = reverse("contacts:segments-groups-detail", kwargs={
+        'parent_lookup_segments': segment.id,
+        'pk': group.id
+    })
+    response = auth_client.delete(url)
+    assert response.status_code == 204
+
+    # Test deleting a Segment Group form a Workspace you don't belong to
+    segment2 = SegmentFactory.create(workspace=workspace2)
+    group2 = GroupOfConditionsFactory.create(segment=segment2, workspace=workspace2)
+    url = reverse("contacts:segments-groups-detail", kwargs={
+        'parent_lookup_segments': segment2.id,
+        'pk': group2.id
+    })
+    response = auth_client.delete(url)
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_create_segment_condition_basic_field(auth_client, workspace):
+    segment = SegmentFactory.create(workspace=workspace)
+    group = GroupOfConditionsFactory.create(segment=segment, workspace=workspace)
+    url = reverse("contacts:segments-groups-conditions", kwargs={
+        'parent_lookup_segments': segment.id,
+        'pk': group.id,
+    })
+    payload = {
+        'condition_type': 'BASIC FIELD',
+        'basic_field': 'FIRST_NAME',
+        'check_type': 'CONTAINS',
+        'input_value': 'Brad',
+        'workspace': workspace.id,
+    }
+    response = auth_client.post(url, payload)
+    res = response.json()
+    assert response.status_code == 201
+    assert res['condition_type'] == 'BASIC FIELD'
+    assert res['basic_field'] == 'FIRST_NAME'
+    assert res['check_type'] == 'CONTAINS'
+    assert res['input_value'] == 'Brad'
+    assert res['group'] == group.id
+
+
+# TODO: Create tests for the other condition types
+
+
+@pytest.mark.django_db
+def test_update_segment_condition(auth_client, workspace):
+    segment = SegmentFactory.create(workspace=workspace)
+    group = GroupOfConditionsFactory.create(segment=segment, workspace=workspace)
+    condition = ConditionFactory.create(group=group, workspace=workspace)
+    url = reverse("contacts:segments-groups-conditions", kwargs={
+        'parent_lookup_segments': segment.id,
+        'pk': group.id,
+        'condition_pk': condition.id
+    })
+    payload = {
+        'input_value': 'Johnny',
+    }
+    response = auth_client.patch(url, payload)
+    res = response.json()
+    assert response.status_code == 200
+    assert res['input_value'] == 'Johnny'
+
+
+@pytest.mark.django_db
+def test_delete_segment_condition(auth_client, workspace, workspace2):
+    segment = SegmentFactory.create(workspace=workspace)
+    group = GroupOfConditionsFactory.create(segment=segment, workspace=workspace)
+    condition = ConditionFactory.create(group=group, workspace=workspace)
+    url = reverse("contacts:segments-groups-conditions", kwargs={
+        'parent_lookup_segments': segment.id,
+        'pk': group.id,
+        'condition_pk': condition.id
+    })
+    response = auth_client.delete(url)
+    assert response.status_code == 204
+    assert Condition.objects.count() == 0
+
+    # Test deleting a Segment Condition form a Workspace you don't belong to
+    segment2 = SegmentFactory.create(workspace=workspace2)
+    group2 = GroupOfConditionsFactory.create(segment=segment2, workspace=workspace2)
+    condition2 = ConditionFactory.create(group=group2, workspace=workspace2)
+    url = reverse("contacts:segments-groups-conditions", kwargs={
+        'parent_lookup_segments': segment2.id,
+        'pk': group2.id,
+        'condition_pk': condition2.id
+    })
+    response = auth_client.delete(url)
+    assert response.status_code == 403
+    assert Condition.objects.count() == 1

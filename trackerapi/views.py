@@ -100,6 +100,7 @@ class TrackContactViewSet(WorkspaceViewset):
     def perform_create(self, serializer):
         """Override perform_create() to set custom fields value or add to a List."""
         # TODO: update contact edit_history field
+        # TODO: delay the send_double_optin_validation_email() task to trigger the event if list is double optin
         contact = serializer.save()
         if "lists" in serializer.validated_data:
             for list in serializer.validated_data["lists"]:

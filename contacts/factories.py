@@ -60,4 +60,35 @@ class SegmentFactory(factories.BaseWorkspaceFactory):
 
     name = factory.Sequence(lambda n: 'Segment %d' % n)
     description = fuzzy.FuzzyText(length=100)
+    operator = fuzzy.FuzzyChoice(["AND", "OR"])
+    workspace = factory.SelfAttribute('..workspace')
+
+
+class GroupOfConditionsFactory(factories.BaseWorkspaceFactory):
+    class Meta:
+        model = models.GroupOfConditions
+
+    operator = fuzzy.FuzzyChoice(["AND", "OR"])
+    segment = factory.SubFactory('contacts.factories.SegmentFactory')
+    workspace = factory.SelfAttribute('..workspace')
+
+
+class ConditionFactory(factories.BaseWorkspaceFactory):
+    class Meta:
+        model = models.Condition
+
+    condition_type = "BASIC FIELD"
+    basic_field = fuzzy.FuzzyChoice(["FIRST_NAME", "LAST_NAME", "EMAIL"])
+    check_type = fuzzy.FuzzyChoice(["IS", "CONTAINS"])
+    input_value = fuzzy.FuzzyText(length=8)
+    group = factory.SubFactory('contacts.factories.GroupOfConditionsFactory')
+    workspace = factory.SelfAttribute('..workspace')
+
+
+class ContactInSegmentFactory(factories.BaseWorkspaceFactory):
+    class Meta:
+        model = models.ContactInSegment
+
+    contact = factory.SubFactory('contacts.factories.ContactFactory')
+    segment = factory.SubFactory('contacts.factories.SegmentFactory')
     workspace = factory.SelfAttribute('..workspace')

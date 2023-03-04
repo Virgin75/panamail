@@ -1,5 +1,5 @@
 from django.utils import timezone
-from rest_framework import status
+from rest_framework import status, exceptions
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import AllowAny
@@ -123,8 +123,8 @@ class ListViewSet(WorkspaceViewset, NestedViewSetMixin):
      - ✔️ /api/lists/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific list.
 
      Custom actions:
-     - /api/lists/<pk>/unsubscribed_contacts/ (GET): List of all unsubscribed contacts of a list.
-     - /api/lists/<pk>/double-optin/<validation-token> (GET): Public view for user to validate their subscription.
+     - ✔️ /api/lists/<pk>/unsubscribed-contacts/ (GET): List of all unsubscribed contacts of a list.
+     - ✔️ /api/lists/<pk>/double-optin/<validation-token> (GET): Public view for user to validate their subscription.
     """
 
     base_model_class = models.List
@@ -138,19 +138,28 @@ class ListViewSet(WorkspaceViewset, NestedViewSetMixin):
         """List of all unsubscribed contacts of a list."""
         list_obj = self.get_object()
         contacts = list_obj.unsubscribed_contacts.all()
-        return Response(status=status.HTTP_200_OK, data=self.get_serializer(contacts).data)
+        page = self.paginate_queryset(contacts)
+        return self.get_paginated_response(self.get_serializer(page, many=True).data)
 
-    @action(detail=True, methods=['get'], permission_classes=[AllowAny], authentication_classes=[])
-    def double_optin(self, request, pk, validation_token):
+    @action(
+        detail=True, methods=['get'], permission_classes=[AllowAny], authentication_classes=[],
+        url_path='double-optin/(?P<validation_token>[^/.]+)'
+    )
+    def double_optin(self, request, **kwargs):
         """Public view for user to validate his subscription when the list has double opt-in activated."""
-        list_obj = self.get_object()
-        contact_in_list = ContactInList.objects.filter(double_optin_token=validation_token)
+        contact_in_list = ContactInList.objects.get(
+            double_optin_token=kwargs.get('validation_token'),
+            list_id=kwargs.get('pk')
+        )
+        if not contact_in_list:
+            raise exceptions.NotFound("Invalid validation token.")
+
         contact_in_list.double_optin_validate_date = timezone.now()
         contact_in_list.save()
         return Response(
             status=status.HTTP_200_OK,
             data={
-                "status": f"Subscription to the list {list_obj.name} confirmed."
+                "status": f"Subscription to the list {kwargs.get('pk')} confirmed."
             }
         )
 
@@ -159,12 +168,14 @@ class NestedContactInListViewSet(WorkspaceViewset, NestedViewSetMixin):
     """
     Nested List Viewset. Perform all CRUD actions on ContactInList objects.
 
-     - /api/lists/<list_id>/contacts/?workspace_id=XXX (GET): List all contacts of a list.
-     - /api/lists/<list_id>/contacts/ (POST): Add a contact to a list.
-     - /api/lists/<list_id>/contacts/<pk>/ (DELETE): Remove a contact from a list.
+     - ✔️ /api/lists/<list_id>/contacts/?workspace_id=XXX (GET): List all contacts of a list.
+     - ✔️ /api/lists/<list_id>/contacts/ (POST): Add a contact to a list.
+     - ✔️ /api/lists/<list_id>/contacts/<pk>/ (DELETE): Remove a contact from a list.
 
      Custom actions:
      -
+    TODO: delay the send_double_optin_validation_email() task to trigger the event if list is double optin (upon creation)
+
     """
 
     base_model_class = models.ContactInList
@@ -185,13 +196,13 @@ class SegmentViewset(WorkspaceViewset, NestedViewSetMixin):
     """
     Perform all CRUD actions on Segment objects.
 
-     - /api/segments/?workspace_id=XXX (GET): List all segments of a workspace.
-     - /api/segments/ (POST): Create a new segment.
-     - /api/segments/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific segment.
+     - ✔️ /api/segments/?workspace_id=XXX (GET): List all segments of a workspace.
+     - ✔️ /api/segments/ (POST): Create a new segment.
+     - ✔️ /api/segments/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific segment.
         > The GET endpoint retrieve the Segment groups and their associated Conditions.
 
      Custom actions:
-     - /api/segments/<pk>/contacts/ (GET): List all contacts matching with a segment conditions.
+     - ✔️ /api/segments/<pk>/contacts/ (GET): List all contacts matching with a segment conditions.
     """
 
     base_model_class = models.Segment
@@ -210,8 +221,8 @@ class SegmentViewset(WorkspaceViewset, NestedViewSetMixin):
     def contacts(self, request, pk):
         """List of all contacts matching with a segment conditions."""
         segment = self.get_object()
-        contacts = segment.members.all()
-        return Response(status=status.HTTP_200_OK, data=self.get_serializer(contacts).data)
+        contacts = self.paginate_queryset(segment.members.all())
+        return self.get_paginated_response(self.get_serializer(contacts, many=True).data)
 
 
 class NestedGroupConditionsViewSet(WorkspaceViewset, NestedViewSetMixin):
@@ -219,12 +230,12 @@ class NestedGroupConditionsViewSet(WorkspaceViewset, NestedViewSetMixin):
     Nested Segment Viewset. Perform all CRUD actions on GroupConditions objects.
     A GroupConditions object is a group of conditions that are linked to a Segment.
 
-     - /api/segments/<segment_id>/groups/ (POST): Create a new group for a segment.
-     - /api/segments/<segment_id>/groups/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific group.
+     - ✔️ /api/segments/<segment_id>/groups/ (POST): Create a new group for a segment.
+     - ✔️ /api/segments/<segment_id>/groups/<pk>/ (GET, PATCH, DELETE): Retrieve, update or delete a specific group.
 
      Custom actions:
-     - /api/segments/<segment_id>/groups/<pk>/conditions/ (POST): Create a Condition within a Group.
-     - /api/segments/<segment_id>/groups/<pk>/conditions/<condition_pk> (PATCH, DELETE): Edit or Delete a Condition.
+     - ✔️ /api/segments/<segment_id>/groups/<pk>/conditions/ (POST): Create a Condition within a Group.
+     - ✔️ /api/segments/<segment_id>/groups/<pk>/conditions/<condition_pk> (PATCH, DELETE): Edit or Delete a Condition.
     """
 
     base_model_class = models.GroupOfConditions
@@ -233,23 +244,29 @@ class NestedGroupConditionsViewSet(WorkspaceViewset, NestedViewSetMixin):
 
     search_fields = ("name",)
     ordering_fields = ("created_at", "name", "contacts_count")
-    filterset_fields = ("tags",)
 
     parent_obj_type = "segment_id"
     parent_obj_url_lookup = "parent_lookup_segments"
 
-    @action(detail=True, methods=['patch', 'delete'], serializer_class=serializers.ConditionSerializer)
-    def conditions(self, request, pk, condition_pk):
+    @action(
+        detail=True, methods=['patch', 'delete'],
+        serializer_class=serializers.ConditionSerializer,
+        url_path='conditions/(?:(?P<condition_pk>[^/.]+))?'
+    )
+    def conditions(self, request, **kwargs):
         """Edit or Delete a condition within a group."""
         group = self.get_object()
-        condition = get_object_or_404(models.Condition, pk=condition_pk, group=group)
+        condition = get_object_or_404(models.Condition, pk=kwargs.get("condition_pk"), group=group)
+        if request.method == "DELETE":
+            condition.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         serializer = serializers.ConditionSerializer(condition, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @conditions.mapping.post
-    def add_condition(self, request, pk):
+    def add_condition(self, request, **kwargs):
         """Create a new condition within a group."""
         group = self.get_object()
         serializer = serializers.ConditionSerializer(data=request.data)

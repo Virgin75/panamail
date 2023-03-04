@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.relations import PrimaryKeyRelatedField
 
 from commons.models import Tag
 from commons.serializers import WksFieldsSerializer, RestrictedPKRelatedField
@@ -116,7 +117,22 @@ class GroupOfConditionsSerializer(serializers.ModelSerializer, WksFieldsSerializ
 
 
 class ConditionSerializer(serializers.ModelSerializer):
-    CustomField = RestrictedPKRelatedField(many=False, read_serializer=CustomFieldSerializer, model=CustomField)
+    from trackerapi.models import Event, Page
+    from trackerapi.serializers import EventSerializer, PageSerializer
+
+    CustomField = RestrictedPKRelatedField(
+        many=False, read_serializer=CustomFieldSerializer, model=CustomField, required=False
+    )
+    event = RestrictedPKRelatedField(
+        many=False, read_serializer=EventSerializer, model=Event, required=False
+    )
+    page = RestrictedPKRelatedField(
+        many=False, read_serializer=PageSerializer, model=Page, required=False
+    )
+    list = RestrictedPKRelatedField(
+        many=False, read_serializer=ListSerializer, model=List, required=False
+    )
+    group = PrimaryKeyRelatedField(many=False, read_only=True)
 
     class Meta:
         model = Condition
@@ -131,6 +147,8 @@ class SegmentMinimalReadOnlySerializer(serializers.ModelSerializer):
 
 
 class SegmentReadOnlySerializer(serializers.ModelSerializer, WksFieldsSerializer):
+    """Serializer used only to retrieve a single Segment with all its details."""
+
     tags = RestrictedPKRelatedField(many=True, read_serializer=TagSerializer, model=Tag)
     contacts_count = serializers.SerializerMethodField(read_only=True)
     conditions = serializers.SerializerMethodField(read_only=True)

@@ -177,13 +177,37 @@ class ContactInSegmentHistory(BaseWorkspace):
 
 
 class Condition(BaseWorkspace):
-    """A Condition is a rule that is used to compute a Segment members."""
+    """
+    A Condition is a rule that is used to compute a Segment members.
+
+    Basically, a Condition object may look like these examples:
+
+        >> <custom_field> <check_type> <input_value>,
+             which may translate to: 'Age' 'is greater than' '18'.
+        >> <event> <check_type> <input_value> <check_period> <input_date1>
+             which may translate to: 'Ordered completed' 'has been performed' 'after' '2020-01-01'.
+
+    -----------------------------------------------
+    Field explanation (most of the field may be null or blank depending on the condition_type):
+    -----------------------------------------------
+    - 'condition_type' (mandatory field):
+        >> The main type on which the condition is applied (basic fields, custom fields, lists, events, pages).
+        * If 'BASIC FIELD': The 'basic_field' must be set to one of: ('email', 'first_name', 'last_name).
+        * If 'CUSTOM FIELD': The 'custom_field' must be set to a CustomField object.
+        * If 'LIST': The 'list must be set to a List object.
+        * If 'EVENT': The 'event' must be set to an Event object.
+        * If 'PAGE': The 'page' must be set to a Page object.
+    - 'check_type' (mandatory field):
+        >> The type of check that is applied to the condition (is, contains, is greater than...).
+    - 'input_value' (mandatory field):
+        >> The value that is used to check the condition.
+    """
 
     class Meta:
         verbose_name_plural = "Segment Conditions"
 
     CONDITION_TYPES = [
-        ('EMAIL', 'Contact email ... <input_value>'),
+        ('BASIC FIELD', 'Contact basic fields ... <input_value>'),
         ('CUSTOM FIELD', 'Contact <custom_field> ... <input_value>'),
         ('LIST', 'Contact is in list <input_value>'),
         ('EVENT', 'Contact has triggered event <input_value>'),
@@ -191,7 +215,7 @@ class Condition(BaseWorkspace):
     ]
 
     CHECK_TYPES = [
-        ('IS', 'is exactly'),
+        ('IS', 'is exactly // has been performed // has been viewed'),
         ('IS NOT', 'is not'),
         ('CONTAINS', 'contains'),
         ('DOES NOT CONTAIN', 'does not contain'),
@@ -222,9 +246,15 @@ class Condition(BaseWorkspace):
 
     group = models.ForeignKey('GroupOfConditions', on_delete=models.CASCADE, related_name='conditions')
     custom_field = models.ForeignKey(CustomField, on_delete=models.CASCADE, null=True, blank=True)
+    basic_field = models.CharField(choices=[
+        ("EMAIL", "Email"), ("FIRST_NAME", "First name"), ("LAST_NAME", "Last name")
+    ], max_length=20, null=True, blank=True)
+    event = models.CharField(max_length=100, null=True, blank=True)
+    page = models.CharField(max_length=100, null=True, blank=True)
+    list = models.ForeignKey(List, on_delete=models.CASCADE, null=True, blank=True)
     condition_type = models.CharField(max_length=20, choices=CONDITION_TYPES, null=True, blank=True)
     check_type = models.CharField(max_length=20, choices=CHECK_TYPES, null=True, blank=True)
-    #Contains value to check or object ID (depending on condition_type)
+    # Contains value to check or object ID (depending on condition_type)
     input_value = models.TextField(null=True, blank=True)
     input_value2 = models.TextField(null=True, blank=True)
     # Below fields are For PAGE & EVENT condition_type only
