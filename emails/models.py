@@ -49,4 +49,3 @@ class Email(BaseWorkspace):
     def __str__(self):
         return f'{self.name} - Workspace: {self.workspace}'
 
-

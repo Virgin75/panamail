@@ -10,14 +10,14 @@ from .models import Contact, ContactInList, CSVImportHistory, CustomFieldOfConta
 
 
 @pytest.mark.django_db
-def test_create_list(auth_client, workspace):
+def test_create_list(auth_client):
     url = reverse("contacts:lists-list")
     payload = {
         'name': 'new name',
         "description": "new description",
-        "workspace": workspace.id,
+        "workspace": auth_client.workspace.id,
     }
-    response = auth_client.post(url, payload)
+    response = auth_client.api.post(url, payload)
     res = response.json()
     assert response.status_code == 201
     assert res['name'] == 'new name'
@@ -25,10 +25,10 @@ def test_create_list(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_list_lists(auth_client, workspace, workspace2):
+def test_list_lists(auth_client, workspace2):
     lists = ListFactory.create_batch(
         size=3,
-        workspace=workspace,
+        workspace=auth_client.workspace,
         contacts__size=4,
     )
     ListFactory.create_batch(
@@ -38,7 +38,7 @@ def test_list_lists(auth_client, workspace, workspace2):
     )
 
     url = reverse("contacts:lists-list")
-    response = auth_client.get(url, {'workspace_id': workspace.id})
+    response = auth_client.api.get(url, {'workspace_id': auth_client.workspace.id})
     res = response.json()
     assert response.status_code == 200
     assert res['count'] == len(lists)  # must not be 6
@@ -46,18 +46,18 @@ def test_list_lists(auth_client, workspace, workspace2):
 
 
 @pytest.mark.django_db
-def test_bulk_import_contacts_in_list(auth_client, workspace):
+def test_bulk_import_contacts_in_list(auth_client):
     list = ListFactory.create(
-        workspace=workspace,
+        workspace=auth_client.workspace,
         contacts__size=3,
     )
     custom_field_int = CustomFieldFactory.create(
-        workspace=workspace,
+        workspace=auth_client.workspace,
         type='int',
         name='age',
     )
     custom_field_str = CustomFieldFactory.create(
-        workspace=workspace,
+        workspace=auth_client.workspace,
         type='str',
         name='type',
     )
@@ -69,14 +69,14 @@ def test_bulk_import_contacts_in_list(auth_client, workspace):
         "update_existing": False,
         "mass_unsubscribe": False,
         "list": list.id,
-        'workspace': workspace.id,
+        'workspace': auth_client.workspace.id,
         "file": file,
         "mapping": ["email", str(custom_field_int.id), str(custom_field_str.id)],
     }
-    response = auth_client.post(url, payload)
+    response = auth_client.api.post(url, payload)
     res = response.json()
 
-    contacts_custom_fields = CustomFieldOfContact.objects.filter(contact__workspace=workspace)
+    contacts_custom_fields = CustomFieldOfContact.objects.filter(contact__workspace=auth_client.workspace)
     assert len(contacts_custom_fields) == 4
     task = CSVImportHistory.objects.first()
     assert task.file_name == 'test.csv'
@@ -84,7 +84,7 @@ def test_bulk_import_contacts_in_list(auth_client, workspace):
     assert task.nb_errors == 0
     assert Contact.objects.filter(email="test1@gmail.com").exists()
     assert Contact.objects.filter(email="test2@gmail.com").exists()
-    assert task.workspace == workspace
+    assert task.workspace == auth_client.workspace
     assert task.list == list
     assert task.mapping == ['email', str(custom_field_int.id), str(custom_field_str.id)]
     assert response.status_code == 200
@@ -92,9 +92,9 @@ def test_bulk_import_contacts_in_list(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_list_contacts_in_list(auth_client, workspace):
+def test_list_contacts_in_list(auth_client):
     list = ListFactory.create(
-        workspace=workspace,
+        workspace=auth_client.workspace,
         contacts__size=3,
     )
 
@@ -102,7 +102,7 @@ def test_list_contacts_in_list(auth_client, workspace):
         "contacts:lists-contacts-list",
         kwargs={'parent_lookup_lists': list.id}
     )
-    response = auth_client.get(url, {'workspace_id': workspace.id})
+    response = auth_client.api.get(url, {'workspace_id': auth_client.workspace.id})
     res = response.json()
     assert response.status_code == 200
     assert res['count'] == 3
@@ -110,9 +110,9 @@ def test_list_contacts_in_list(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_list_unsub_contacts_in_list(auth_client, workspace):
+def test_list_unsub_contacts_in_list(auth_client):
     list = ListFactory.create(
-        workspace=workspace,
+        workspace=auth_client.workspace,
         contacts__size=3,
     )
     contact = Contact.objects.first()
@@ -122,7 +122,7 @@ def test_list_unsub_contacts_in_list(auth_client, workspace):
         "contacts:lists-unsubscribed-contacts",
         kwargs={'pk': list.id}
     )
-    response = auth_client.get(url)
+    response = auth_client.api.get(url)
     res = response.json()
     assert response.status_code == 200
     assert res['count'] == 1
@@ -130,9 +130,9 @@ def test_list_unsub_contacts_in_list(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_list_double_optin_token_validation(auth_client, workspace):
+def test_list_double_optin_token_validation(auth_client):
     list = ListFactory.create(
-        workspace=workspace,
+        workspace=auth_client.workspace,
         optin_choice="double",
         contacts__size=1,
     )
@@ -143,7 +143,7 @@ def test_list_double_optin_token_validation(auth_client, workspace):
         "contacts:lists-double-optin",
         kwargs={'pk': list.id, "validation_token": validation_token}
     )
-    response = auth_client.get(url, {'email': contact.email})
+    response = auth_client.api.get(url, {'email': contact.email})
     res = response.json()
     assert response.status_code == 200
     assert res == {"status": f"Subscription to the list {list.id} confirmed."}
@@ -151,16 +151,16 @@ def test_list_double_optin_token_validation(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_list_all_contacts_of_list(auth_client, workspace):
+def test_list_all_contacts_of_list(auth_client):
     list = ListFactory.create(
-        workspace=workspace,
+        workspace=auth_client.workspace,
         contacts__size=3,
     )
     url = reverse(
         "contacts:lists-contacts-list",
         kwargs={'parent_lookup_lists': list.id}
     )
-    response = auth_client.get(url, {'workspace_id': workspace.id})
+    response = auth_client.api.get(url, {'workspace_id': auth_client.workspace.id})
     res = response.json()
     assert response.status_code == 200
     assert res['count'] == 3
@@ -170,18 +170,18 @@ def test_list_all_contacts_of_list(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_add_existing_contact_to_list(auth_client, workspace):
-    list = ListFactory.create(workspace=workspace, contacts__size=1)
+def test_add_existing_contact_to_list(auth_client):
+    list = ListFactory.create(workspace=auth_client.workspace, contacts__size=1)
     url = reverse(
         "contacts:lists-contacts-list",
         kwargs={'parent_lookup_lists': list.id}
     )
-    contact = ContactFactory(workspace=workspace)
+    contact = ContactFactory(workspace=auth_client.workspace)
     payload = {
         'contact': contact.id,
-        'workspace': workspace.id,
+        'workspace': auth_client.workspace.id,
     }
-    response = auth_client.post(url, payload)
+    response = auth_client.api.post(url, payload)
     res = response.json()
     assert response.status_code == 201
     assert res['contact']['email'] == contact.email
@@ -190,27 +190,27 @@ def test_add_existing_contact_to_list(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_remove_contact_from_list(auth_client, workspace):
-    list = ListFactory.create(workspace=workspace, contacts__size=1)
+def test_remove_contact_from_list(auth_client):
+    list = ListFactory.create(workspace=auth_client.workspace, contacts__size=1)
     contact = Contact.objects.first()
 
     url = reverse(
         "contacts:lists-contacts-detail",
         kwargs={'parent_lookup_lists': list.id, 'pk': contact.id}
     )
-    response = auth_client.delete(url)
+    response = auth_client.api.delete(url)
     assert response.status_code == 204
     assert ContactInList.objects.filter(contact=contact, list=list).count() == 0
 
 
 @pytest.mark.django_db
-def test_create_contact(auth_client, workspace):
+def test_create_contact(auth_client):
     url = reverse("contacts:contacts-list")
     payload = {
         'email': 'test3@gmail.com',
-        'workspace': workspace.id
+        'workspace': auth_client.workspace.id
     }
-    response = auth_client.post(url, payload)
+    response = auth_client.api.post(url, payload)
     res = response.json()
     assert response.status_code == 201
     assert res['email'] == 'test3@gmail.com'
@@ -218,10 +218,10 @@ def test_create_contact(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_list_contacts(auth_client, workspace):
-    ContactFactory.create_batch(3, workspace=workspace)
+def test_list_contacts(auth_client):
+    ContactFactory.create_batch(3, workspace=auth_client.workspace)
     url = reverse("contacts:contacts-list")
-    response = auth_client.get(url, {'workspace_id': workspace.id})
+    response = auth_client.api.get(url, {'workspace_id': auth_client.workspace.id})
     res = response.json()
     assert response.status_code == 200
     assert res['count'] == 3
@@ -229,35 +229,35 @@ def test_list_contacts(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_retrieve_contact(auth_client, workspace):
-    contact = ContactFactory.create(workspace=workspace)
+def test_retrieve_contact(auth_client):
+    contact = ContactFactory.create(workspace=auth_client.workspace)
     CustomFieldOfContactFactory.create(
         contact=contact,
-        workspace=workspace,
-        custom_field=CustomFieldFactory.create(workspace=workspace, type='int'),
+        workspace=auth_client.workspace,
+        custom_field=CustomFieldFactory.create(workspace=auth_client.workspace, type='int'),
         value_int=10
     )
 
     url = reverse("contacts:contacts-detail", kwargs={'pk': contact.id})
-    response = auth_client.get(url)
+    response = auth_client.api.get(url)
     res = response.json()
     assert response.status_code == 200
     assert res['email'] == contact.email
     assert res["first_name"] == contact.first_name
     assert res["last_name"] == contact.last_name
-    assert res["workspace"] == str(workspace.id)
+    assert res["workspace"] == str(auth_client.workspace.id)
     assert res["custom_fields"][0]["value"] == 10
 
 
 @pytest.mark.django_db
-def test_update_contact(auth_client, workspace):
-    contact = ContactFactory.create(workspace=workspace)
+def test_update_contact(auth_client):
+    contact = ContactFactory.create(workspace=auth_client.workspace)
     url = reverse("contacts:contacts-detail", kwargs={'pk': contact.id})
     payload = {
         'first_name': 'test',
         'last_name': 'test',
     }
-    response = auth_client.patch(url, payload)
+    response = auth_client.api.patch(url, payload)
     res = response.json()
     assert response.status_code == 200
     assert res['first_name'] == 'test'
@@ -265,22 +265,22 @@ def test_update_contact(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_delete_contact(auth_client, workspace):
-    contact = ContactFactory.create(workspace=workspace)
+def test_delete_contact(auth_client):
+    contact = ContactFactory.create(workspace=auth_client.workspace)
     url = reverse("contacts:contacts-detail", kwargs={'pk': contact.id})
-    response = auth_client.delete(url)
+    response = auth_client.api.delete(url)
     assert response.status_code == 204
     assert Contact.objects.filter(id=contact.id).count() == 0
 
 
 @pytest.mark.django_db
-def test_get_lists_of_contact(auth_client, workspace):
-    contact = ContactFactory(workspace=workspace)
-    lists = ListFactory.create_batch(3, workspace=workspace)
-    [list.contacts.add(contact, through_defaults={"workspace": workspace}) for list in lists]
+def test_get_lists_of_contact(auth_client):
+    contact = ContactFactory(workspace=auth_client.workspace)
+    lists = ListFactory.create_batch(3, workspace=auth_client.workspace)
+    [list.contacts.add(contact, through_defaults={"workspace": auth_client.workspace}) for list in lists]
 
     url = reverse("contacts:contacts-lists", kwargs={'pk': contact.id})
-    response = auth_client.get(url)
+    response = auth_client.api.get(url)
     res = response.json()
     assert response.status_code == 200
     assert res['count'] == 3
@@ -289,13 +289,13 @@ def test_get_lists_of_contact(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_get_segments_of_contact(auth_client, workspace):
-    contact = ContactFactory(workspace=workspace)
-    segments = SegmentFactory.create_batch(3, workspace=workspace)
-    [segment.members.add(contact, through_defaults={"workspace": workspace}) for segment in segments]
+def test_get_segments_of_contact(auth_client):
+    contact = ContactFactory(workspace=auth_client.workspace)
+    segments = SegmentFactory.create_batch(3, workspace=auth_client.workspace)
+    [segment.members.add(contact, through_defaults={"workspace": auth_client.workspace}) for segment in segments]
 
     url = reverse("contacts:contacts-segments", kwargs={'pk': contact.id})
-    response = auth_client.get(url)
+    response = auth_client.api.get(url)
     res = response.json()
     assert response.status_code == 200
     assert res['count'] == 3
@@ -304,13 +304,13 @@ def test_get_segments_of_contact(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_unsubscribe_contact_from_list(auth_client, workspace):
-    contact = ContactFactory(workspace=workspace)
-    list = ListFactory.create(workspace=workspace)
-    ContactInListFactory.create(contact=contact, list=list, workspace=workspace)
+def test_unsubscribe_contact_from_list(auth_client):
+    contact = ContactFactory(workspace=auth_client.workspace)
+    list = ListFactory.create(workspace=auth_client.workspace)
+    ContactInListFactory.create(contact=contact, list=list, workspace=auth_client.workspace)
     url = reverse("contacts:contacts-unsub-from-list", kwargs={'pk': contact.id, 'list_pk': list.id})
 
-    response = auth_client.post(url)
+    response = auth_client.api.post(url)
     res = response.json()
     assert response.status_code == 200
     assert res == {"status": "Contact unsubscribed from list."}
@@ -326,9 +326,9 @@ def test_unsubscribe_contact_from_list(auth_client, workspace):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("field_type", ["str", "bool", "int", "date"])
-def test_set_custom_field_value(auth_client, workspace, field_type):
-    contact = ContactFactory(workspace=workspace)
-    custom_field = CustomFieldFactory.create(type=field_type, workspace=workspace)
+def test_set_custom_field_value(auth_client, field_type):
+    contact = ContactFactory(workspace=auth_client.workspace)
+    custom_field = CustomFieldFactory.create(type=field_type, workspace=auth_client.workspace)
     url = reverse("contacts:contacts-set-custom-field-value", kwargs={'pk': contact.id})
     value = {
         "str": "test",
@@ -339,9 +339,9 @@ def test_set_custom_field_value(auth_client, workspace, field_type):
     payload = {
         'custom_field': custom_field.id,
         f'value_{field_type}': value[field_type],
-        'workspace': workspace.id
+        'workspace': auth_client.workspace.id
     }
-    response = auth_client.post(url, payload)
+    response = auth_client.api.post(url, payload)
     res = response.json()
     assert response.status_code == 201
     assert res['custom_field']['name'] == custom_field.name
@@ -349,26 +349,26 @@ def test_set_custom_field_value(auth_client, workspace, field_type):
 
 
 @pytest.mark.django_db
-def test_create_custom_field(auth_client, workspace):
+def test_create_custom_field(auth_client):
     url = reverse("contacts:custom-fields-list")
     payload = {
         'name': 'age',
-        'workspace': workspace.id,
+        'workspace': auth_client.workspace.id,
         'type': 'int'
     }
-    response = auth_client.post(url, payload)
+    response = auth_client.api.post(url, payload)
     res = response.json()
     assert response.status_code == 201
     assert res['name'] == 'age'
-    assert res['workspace'] == str(workspace.id)
+    assert res['workspace'] == str(auth_client.workspace.id)
     assert res['type'] == 'int'
 
 
 @pytest.mark.django_db
-def test_list_custom_fields(auth_client, workspace):
-    CustomFieldFactory.create_batch(3, workspace=workspace)
+def test_list_custom_fields(auth_client):
+    CustomFieldFactory.create_batch(3, workspace=auth_client.workspace)
     url = reverse("contacts:custom-fields-list")
-    response = auth_client.get(url, {'workspace_id': workspace.id})
+    response = auth_client.api.get(url, {'workspace_id': auth_client.workspace.id})
     res = response.json()
     assert response.status_code == 200
     assert res['count'] == 3
@@ -376,35 +376,35 @@ def test_list_custom_fields(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_retrieve_custom_field(auth_client, workspace):
-    custom_field = CustomFieldFactory.create(workspace=workspace)
+def test_retrieve_custom_field(auth_client):
+    custom_field = CustomFieldFactory.create(workspace=auth_client.workspace)
     url = reverse("contacts:custom-fields-detail", kwargs={'pk': custom_field.id})
-    response = auth_client.get(url)
+    response = auth_client.api.get(url)
     res = response.json()
     assert response.status_code == 200
     assert res['name'] == custom_field.name
-    assert res["workspace"] == str(workspace.id)
+    assert res["workspace"] == str(auth_client.workspace.id)
     assert res["type"] == custom_field.type
 
 
 @pytest.mark.django_db
-def test_update_custom_field(auth_client, workspace):
-    custom_field = CustomFieldFactory.create(workspace=workspace)
+def test_update_custom_field(auth_client):
+    custom_field = CustomFieldFactory.create(workspace=auth_client.workspace)
     url = reverse("contacts:custom-fields-detail", kwargs={'pk': custom_field.id})
     payload = {
         'name': 'age',
     }
-    response = auth_client.patch(url, payload)
+    response = auth_client.api.patch(url, payload)
     res = response.json()
     assert response.status_code == 200
     assert res['name'] == 'age'
 
 
 @pytest.mark.django_db
-def test_delete_custom_field(auth_client, workspace):
-    custom_field = CustomFieldFactory.create(workspace=workspace)
+def test_delete_custom_field(auth_client):
+    custom_field = CustomFieldFactory.create(workspace=auth_client.workspace)
     url = reverse("contacts:custom-fields-detail", kwargs={'pk': custom_field.id})
-    response = auth_client.delete(url)
+    response = auth_client.api.delete(url)
     assert response.status_code == 204
     assert CustomField.objects.filter(id=custom_field.id).count() == 0
 
@@ -417,12 +417,12 @@ def test_delete_custom_field(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_list_segments(auth_client, workspace, workspace2):
-    segments = SegmentFactory.create_batch(3, workspace=workspace)
+def test_list_segments(auth_client, workspace2):
+    segments = SegmentFactory.create_batch(3, workspace=auth_client.workspace)
     SegmentFactory.create_batch(2, workspace=workspace2)
 
     url = reverse("contacts:segments-list")
-    response = auth_client.get(url, {'workspace_id': workspace.id})
+    response = auth_client.api.get(url, {'workspace_id': auth_client.workspace.id})
     res = response.json()
     assert response.status_code == 200
     assert res['count'] == 3
@@ -432,31 +432,31 @@ def test_list_segments(auth_client, workspace, workspace2):
 
 
 @pytest.mark.django_db
-def test_create_segment(auth_client, workspace):
+def test_create_segment(auth_client):
     url = reverse("contacts:segments-list")
     payload = {
         'name': 'Recurrent customers',
         'description': 'Customers who have bought more than 3 times',
         'operator': 'AND',
-        'workspace': workspace.id,
+        'workspace': auth_client.workspace.id,
     }
-    response = auth_client.post(url, payload)
+    response = auth_client.api.post(url, payload)
     res = response.json()
     assert response.status_code == 201
     assert res['name'] == 'Recurrent customers'
     assert res['description'] == 'Customers who have bought more than 3 times'
-    assert res['workspace'] == str(workspace.id)
+    assert res['workspace'] == str(auth_client.workspace.id)
     assert res['operator'] == 'AND'
 
 
 @pytest.mark.django_db
-def test_update_segment(auth_client, workspace, workspace2):
-    segment = SegmentFactory.create(workspace=workspace)
+def test_update_segment(auth_client, workspace2):
+    segment = SegmentFactory.create(workspace=auth_client.workspace)
     url = reverse("contacts:segments-detail", kwargs={'pk': segment.id})
     payload = {
         'description': 'New description',
     }
-    response = auth_client.patch(url, payload)
+    response = auth_client.api.patch(url, payload)
     res = response.json()
     assert response.status_code == 200
     assert res['description'] == 'New description'
@@ -464,34 +464,34 @@ def test_update_segment(auth_client, workspace, workspace2):
     # Test updating a Segment form a Workspace you don't belong to
     segment2 = SegmentFactory.create(workspace=workspace2)
     url = reverse("contacts:segments-detail", kwargs={'pk': segment2.id})
-    response = auth_client.patch(url, payload)
+    response = auth_client.api.patch(url, payload)
     assert response.status_code == 403
 
 
 @pytest.mark.django_db
-def test_delete_segment(auth_client, workspace, workspace2):
-    segment = SegmentFactory.create(workspace=workspace)
+def test_delete_segment(auth_client, workspace2):
+    segment = SegmentFactory.create(workspace=auth_client.workspace)
     url = reverse("contacts:segments-detail", kwargs={'pk': segment.id})
-    response = auth_client.delete(url)
+    response = auth_client.api.delete(url)
     assert response.status_code == 204
     assert Segment.objects.filter(id=segment.id).count() == 0
 
     # Test deleting a Segment form a Workspace you don't belong to
     segment2 = SegmentFactory.create(workspace=workspace2)
     url = reverse("contacts:segments-detail", kwargs={'pk': segment2.id})
-    response = auth_client.delete(url)
+    response = auth_client.api.delete(url)
     assert response.status_code == 403
 
 
 @pytest.mark.django_db
-def test_retrieve_segment(auth_client, workspace):
-    segment = SegmentFactory.create(workspace=workspace)
-    groups = GroupOfConditionsFactory.create_batch(2, segment=segment, workspace=workspace)
+def test_retrieve_segment(auth_client):
+    segment = SegmentFactory.create(workspace=auth_client.workspace)
+    groups = GroupOfConditionsFactory.create_batch(2, segment=segment, workspace=auth_client.workspace)
     for group in groups:
-        ConditionFactory.create_batch(2, group=group, workspace=workspace)
+        ConditionFactory.create_batch(2, group=group, workspace=auth_client.workspace)
 
     url = reverse("contacts:segments-detail", kwargs={'pk': segment.id})
-    response = auth_client.get(url)
+    response = auth_client.api.get(url)
     res = response.json()
     assert response.status_code == 200
     assert res['name'] == segment.name
@@ -504,14 +504,14 @@ def test_retrieve_segment(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_retrieve_segment_with_contacts(auth_client, workspace, workspace2):
-    segment = SegmentFactory.create(workspace=workspace)
-    contacts = ContactFactory.create_batch(3, workspace=workspace)
+def test_retrieve_segment_with_contacts(auth_client, workspace2):
+    segment = SegmentFactory.create(workspace=auth_client.workspace)
+    contacts = ContactFactory.create_batch(3, workspace=auth_client.workspace)
     for contact in contacts:
-        ContactInSegmentFactory.create(segment=segment, contact=contact, workspace=workspace)
+        ContactInSegmentFactory.create(segment=segment, contact=contact, workspace=auth_client.workspace)
 
     url = reverse("contacts:segments-contacts", kwargs={'pk': segment.id})
-    response = auth_client.get(url)
+    response = auth_client.api.get(url)
     res = response.json()
     assert response.status_code == 200
     assert res['count'] == 3
@@ -525,7 +525,7 @@ def test_retrieve_segment_with_contacts(auth_client, workspace, workspace2):
     for contact in contacts:
         ContactInSegmentFactory.create(segment=segment2, contact=contact, workspace=workspace2)
     url = reverse("contacts:segments-contacts", kwargs={'pk': segment2.id})
-    response = auth_client.get(url)
+    response = auth_client.api.get(url)
     assert response.status_code == 403
 
 
@@ -537,17 +537,17 @@ def test_retrieve_segment_with_contacts(auth_client, workspace, workspace2):
 
 
 @pytest.mark.django_db
-def test_create_segment_group(auth_client, workspace):
-    segment = SegmentFactory.create(workspace=workspace)
+def test_create_segment_group(auth_client):
+    segment = SegmentFactory.create(workspace=auth_client.workspace)
     url = reverse("contacts:segments-groups-list", kwargs={
         'parent_lookup_segments': segment.id
     })
     payload = {
         'operator': 'OR',
         'segment': segment.id,
-        'workspace': workspace.id,
+        'workspace': auth_client.workspace.id,
     }
-    response = auth_client.post(url, payload)
+    response = auth_client.api.post(url, payload)
     res = response.json()
     assert response.status_code == 201
     assert res['operator'] == 'OR'
@@ -555,9 +555,9 @@ def test_create_segment_group(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_update_segment_group(auth_client, workspace):
-    segment = SegmentFactory.create(workspace=workspace)
-    group = GroupOfConditionsFactory.create(segment=segment, workspace=workspace, operator='OR')
+def test_update_segment_group(auth_client):
+    segment = SegmentFactory.create(workspace=auth_client.workspace)
+    group = GroupOfConditionsFactory.create(segment=segment, workspace=auth_client.workspace, operator='OR')
     url = reverse("contacts:segments-groups-detail", kwargs={
         'parent_lookup_segments': segment.id,
         'pk': group.id
@@ -565,21 +565,21 @@ def test_update_segment_group(auth_client, workspace):
     payload = {
         'operator': 'AND',
     }
-    response = auth_client.patch(url, payload)
+    response = auth_client.api.patch(url, payload)
     res = response.json()
     assert response.status_code == 200
     assert res['operator'] == 'AND'
 
 
 @pytest.mark.django_db
-def test_delete_segment_group(auth_client, workspace, workspace2):
-    segment = SegmentFactory.create(workspace=workspace)
-    group = GroupOfConditionsFactory.create(segment=segment, workspace=workspace)
+def test_delete_segment_group(auth_client, workspace2):
+    segment = SegmentFactory.create(workspace=auth_client.workspace)
+    group = GroupOfConditionsFactory.create(segment=segment, workspace=auth_client.workspace)
     url = reverse("contacts:segments-groups-detail", kwargs={
         'parent_lookup_segments': segment.id,
         'pk': group.id
     })
-    response = auth_client.delete(url)
+    response = auth_client.api.delete(url)
     assert response.status_code == 204
 
     # Test deleting a Segment Group form a Workspace you don't belong to
@@ -589,14 +589,14 @@ def test_delete_segment_group(auth_client, workspace, workspace2):
         'parent_lookup_segments': segment2.id,
         'pk': group2.id
     })
-    response = auth_client.delete(url)
+    response = auth_client.api.delete(url)
     assert response.status_code == 403
 
 
 @pytest.mark.django_db
-def test_create_segment_condition_basic_field(auth_client, workspace):
-    segment = SegmentFactory.create(workspace=workspace)
-    group = GroupOfConditionsFactory.create(segment=segment, workspace=workspace)
+def test_create_segment_condition_basic_field(auth_client):
+    segment = SegmentFactory.create(workspace=auth_client.workspace)
+    group = GroupOfConditionsFactory.create(segment=segment, workspace=auth_client.workspace)
     url = reverse("contacts:segments-groups-conditions", kwargs={
         'parent_lookup_segments': segment.id,
         'pk': group.id,
@@ -606,9 +606,9 @@ def test_create_segment_condition_basic_field(auth_client, workspace):
         'basic_field': 'FIRST_NAME',
         'check_type': 'CONTAINS',
         'input_value': 'Brad',
-        'workspace': workspace.id,
+        'workspace': auth_client.workspace.id,
     }
-    response = auth_client.post(url, payload)
+    response = auth_client.api.post(url, payload)
     res = response.json()
     assert response.status_code == 201
     assert res['condition_type'] == 'BASIC FIELD'
@@ -622,10 +622,10 @@ def test_create_segment_condition_basic_field(auth_client, workspace):
 
 
 @pytest.mark.django_db
-def test_update_segment_condition(auth_client, workspace):
-    segment = SegmentFactory.create(workspace=workspace)
-    group = GroupOfConditionsFactory.create(segment=segment, workspace=workspace)
-    condition = ConditionFactory.create(group=group, workspace=workspace)
+def test_update_segment_condition(auth_client):
+    segment = SegmentFactory.create(workspace=auth_client.workspace)
+    group = GroupOfConditionsFactory.create(segment=segment, workspace=auth_client.workspace)
+    condition = ConditionFactory.create(group=group, workspace=auth_client.workspace)
     url = reverse("contacts:segments-groups-conditions", kwargs={
         'parent_lookup_segments': segment.id,
         'pk': group.id,
@@ -634,23 +634,23 @@ def test_update_segment_condition(auth_client, workspace):
     payload = {
         'input_value': 'Johnny',
     }
-    response = auth_client.patch(url, payload)
+    response = auth_client.api.patch(url, payload)
     res = response.json()
     assert response.status_code == 200
     assert res['input_value'] == 'Johnny'
 
 
 @pytest.mark.django_db
-def test_delete_segment_condition(auth_client, workspace, workspace2):
-    segment = SegmentFactory.create(workspace=workspace)
-    group = GroupOfConditionsFactory.create(segment=segment, workspace=workspace)
-    condition = ConditionFactory.create(group=group, workspace=workspace)
+def test_delete_segment_condition(auth_client, workspace2):
+    segment = SegmentFactory.create(workspace=auth_client.workspace)
+    group = GroupOfConditionsFactory.create(segment=segment, workspace=auth_client.workspace)
+    condition = ConditionFactory.create(group=group, workspace=auth_client.workspace)
     url = reverse("contacts:segments-groups-conditions", kwargs={
         'parent_lookup_segments': segment.id,
         'pk': group.id,
         'condition_pk': condition.id
     })
-    response = auth_client.delete(url)
+    response = auth_client.api.delete(url)
     assert response.status_code == 204
     assert Condition.objects.count() == 0
 
@@ -663,6 +663,6 @@ def test_delete_segment_condition(auth_client, workspace, workspace2):
         'pk': group2.id,
         'condition_pk': condition2.id
     })
-    response = auth_client.delete(url)
+    response = auth_client.api.delete(url)
     assert response.status_code == 403
     assert Condition.objects.count() == 1
