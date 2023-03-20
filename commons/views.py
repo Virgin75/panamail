@@ -1,12 +1,18 @@
+import pickle
+
 from django.utils.decorators import method_decorator
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema, OpenApiParameter
-from rest_framework import viewsets, filters, exceptions
+from rest_framework import viewsets, filters, exceptions, status
+from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-from commons.models import History
+from commons.models import History, ExportHistory
 from commons.paginations import x10ResultsPerPage
+from commons.serializers import ExportHistorySerializer
+from commons.tasks import generate_async_export
 from users.models import Workspace
 
 params = [
@@ -112,3 +118,42 @@ class WorkspaceViewset(viewsets.ModelViewSet):
             context["workspace"] = workspace_id
 
         return context
+
+
+class ExportMixin(viewsets.GenericViewSet):
+    export_serializer_class = None
+
+    @action(detail=False, methods=['post'])
+    def export(self, request, *args, **kwargs):
+        """
+        Mixin adding an .../export/ view to any objects.
+
+        Export data from a given serializer (async Task).
+        """
+        if not self.export_serializer_class:
+            raise NotImplementedError("ExportMixin requires an 'export_serializer_class' attribute.")
+
+        if not request.data.get("workspace", None):
+            raise exceptions.ValidationError("Missing 'workspace' field.")
+
+        queryset = self.filter_queryset(self.get_queryset())
+        export_task = ExportHistory.objects.create(
+            workspace=request.data.get("workspace"),
+            query=pickle.dumps(queryset.query),
+            export_serializer=pickle.dumps(self.export_serializer_class),
+        )
+        generate_async_export.delay(export_task.id)
+
+        return Response({"status": "Your export is being generated."}, status=status.HTTP_202_ACCEPTED)
+
+
+class ExportViewSet(WorkspaceViewset):
+    """
+    Viewset used to retrieve a list of export history and their related status.
+
+      - GET: /api/commons/export-history/?workspace_id=XXX
+    """
+    base_model_class = ExportHistory
+    serializer_class = ExportHistorySerializer
+    search_fields = ("status",)
+    ordering_fields = ("created_at",)

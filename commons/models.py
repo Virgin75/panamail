@@ -33,3 +33,17 @@ class Tag(BaseWorkspace):
     """Table used in ManyToMany fields when needed to append tags to an object."""
 
     name = models.CharField(max_length=50)
+
+
+class ExportHistory(BaseWorkspace):
+    """Table used to log all export requests."""
+
+    STATUS_CHOICES = [
+        ('PENDING', 'Export is pending.'),
+        ('SUCCESS', 'Export was successful.'),
+        ('FAILURE', 'Export failed.'),
+    ]
+    file = models.FileField(upload_to='exports', null=True, blank=True)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='PENDING')
+    query = models.BinaryField(null=True, blank=True)
+    export_serializer = models.BinaryField(null=True, blank=True)

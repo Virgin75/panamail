@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from commons.models import History
+from commons.models import History, ExportHistory
 from users.serializers import MinimalUserSerializer
 
 
@@ -60,3 +60,10 @@ class PKRelatedFieldWithRead(serializers.PrimaryKeyRelatedField):
         if self.read_serializer:
             return self.read_serializer(instance, context=self.context).data
         return super().to_representation(instance)
+
+
+class ExportHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExportHistory
+        fields = '__all__'
+        read_only_fields = ['created_at', 'created_by']
