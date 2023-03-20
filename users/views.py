@@ -156,7 +156,7 @@ class NestedWorkspaceMembersViewset(
 ):
     """
     - GET: /api/workspaces/<wks_id>/members: List members of Workspace.
-    - PATCH, DELETE: /api/workspaces/<wks_id>/members/<id>: Update or delete a Workspace member.
+    - PATCH, DELETE: /api/workspaces/<wks_id>/members/<user_id>: Update or delete a Workspace member.
     """
 
     serializer_class = MemberOfWorkspaceSerializer
@@ -178,5 +178,5 @@ class NestedWorkspaceMembersViewset(
         if self.request.user not in workspace.members.all():
             raise exceptions.PermissionDenied("You cannot perform this action.")
         member_id = self.kwargs.get("pk")
-        member = workspace.members.through.objects.get(id=member_id, workspace=workspace)
+        member = workspace.members.through.objects.get(user_id=member_id, workspace=workspace)
         return member

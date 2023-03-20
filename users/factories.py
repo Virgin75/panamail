@@ -43,3 +43,11 @@ class MemberOfWorkspaceFactory(factory.django.DjangoModelFactory):
     rights = 'ME'
     added_at = fuzzy.FuzzyDateTime(pytz.UTC.localize(datetime.now()))
     updated_at = fuzzy.FuzzyDateTime(pytz.UTC.localize(datetime.now()))
+
+
+class InvitationFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = models.Invitation
+
+    invited_user = factory.Sequence(lambda n: '%d@%d.com' % (n, n))
+    to_workspace = factory.SubFactory('users.factories.WorkspaceFactory')
