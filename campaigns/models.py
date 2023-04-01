@@ -1,12 +1,21 @@
 from django.db import models
-from django.contrib.auth import get_user_model
-from users.models import Workspace
-from contacts.models import List, Segment
+
+from commons.models import BaseWorkspace, Tag
+from contacts.models import List, Segment, Contact
 from emails.models import Email, SenderEmail
+from trackerapi.models import Event
+from users.models import Workspace
 
 
+class Campaign(BaseWorkspace):
+    """
+    A campaign is a set of the following objects:
+     - An Email Template
+     - A destination List or Segment (email addresses that will receive the campaign)
+     - A Sender Email (the email address that will be used to send the campaign)
 
-class Campaign(models.Model):
+     A campaign can be sent instantly or scheduled for a later date.
+     """
     CAMPAIGN_STATUS = [
         ('DRAFT', "Campaign is in Draft"),
         ('TO VALIDATE', 'Campaign to validate'),
@@ -20,6 +29,8 @@ class Campaign(models.Model):
     ]
 
     name = models.CharField(max_length=89)
+    description = models.TextField(null=True, blank=True)
+    tags = models.ManyToManyField(Tag, blank=True)
     status = models.CharField(max_length=15, choices=CAMPAIGN_STATUS, default='DRAFT')
     sender = models.ForeignKey(SenderEmail, on_delete=models.CASCADE, null=True, blank=True)
     to_type = models.CharField(max_length=10, choices=TO_CHOICES, null=True, blank=True)
@@ -28,28 +39,40 @@ class Campaign(models.Model):
     email_model = models.ForeignKey(Email, on_delete=models.CASCADE, null=True, blank=True)
     subject = models.TextField(null=True, blank=True)
     scheduled_at = models.DateTimeField(blank=True, null=True)
-    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
-    #goal = models.ForeignKey(Event, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True)
+    stats = models.ManyToManyField(Contact, through='CampaignActivity')
+    # goal = models.ForeignKey(Event, on_delete=models.CASCADE)
+    flatten_sending = models.BooleanField(default=False)
+    flatten_start_time = models.DateTimeField(blank=True, null=True)
+    flatten_end_time = models.DateTimeField(blank=True, null=True)
+
+    def send_emails(self):
+        pass
+
+    @property
+    def total_contacts(self) -> int:
+        """Return the total number of contacts in the campaign. Beware of using select_related() in View."""
+        return self.to_list.contact_count if self.to_type == 'LIST' else self.to_segment.contact_count
 
     def __str__(self):
         return f'{self.name} - {self.status} - Workspace: {self.workspace}'
 
 
-class CampaignActivity(models.Model):
+class CampaignActivity(BaseWorkspace):
+    """
+    M2M model used to log every actions related to an email sent.
+
+    Actions may be: Sent, Opens, Clicks, Unsubscribes, Bounces or Spam complaints.
+    """
     ACTIVITY_TYPES = [
-        ('OPEN', 'The campaign email was open'),
-        ('CLICK', 'The campaign email was clicked'),
-        ('UNSUB', 'The user unsubscribed from the list'),
-        ('SPAM', 'The user marked the campaign as spam'),
+        ('SENT', 'The email was sent'),
+        ('OPEN', 'The email was open'),
+        ('CLICK', 'The email was clicked'),
+        ('UNSUB', 'The contact unsubscribed from the list'),
+        ('SPAM', 'The contact marked the campaign as spam'),
         ('BOUNC', 'The email bounced'),
     ]
 
-    type = models.CharField(max_length=5, choices=ACTIVITY_TYPES)
-    campaign_name = models.ForeignKey(Campaign, on_delete=models.CASCADE)
-    user_name = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True, null=True)
-
-    def __str__(self):
-        return f'{self.type} - by {self.user_name} at {self.created_at}'
+    action_type = models.CharField(max_length=5, choices=ACTIVITY_TYPES)
+    campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE)
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
+    details = models.TextField(null=True, blank=True)

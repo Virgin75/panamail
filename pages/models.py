@@ -31,6 +31,7 @@ class BaseElement(models.Model):
     margin_left = models.IntegerField(default=0)
     margin_right = models.IntegerField(default=0)
     background_color = models.CharField(max_length=10, default='#ffffff')
+    background_color_transparency = models.IntegerField(default=100)
     z_index = models.IntegerField(default=0)
     visibility = models.CharField(max_length=50, default='visible')
 
@@ -39,7 +40,13 @@ class BaseElement(models.Model):
 
     def render_widget(self, widget):
         return f"""
-            <div class="pt-{self.padding_top} pb-{self.padding_bottom} pl-{self.padding_left} pr-{self.padding_right}">
+            <div class="
+                pt-{self.padding_top} pb-{self.padding_bottom} pl-{self.padding_left} pr-{self.padding_right}
+                mt-{self.margin_top} mb-{self.margin_bottom} ml-{self.margin_left} mr-{self.margin_right}
+                bg-{self.background_color}/{self.background_color_transparency}
+                z-{self.z_index}
+                {self.visibility if self.visibility != 'visible' else ''}
+            ">
                 {widget}
             </div>
         """
@@ -73,7 +80,9 @@ class HeadingWidget(BaseElement):
 
     def render_widget(self, widget):
         widget = f"""
-            <{self.tag} class="">
+            <{self.tag} class="
+                text-{self.font_color}
+            ">
                 {self.content}
             </{self.tag}>
         """

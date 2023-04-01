@@ -129,6 +129,7 @@ class ExportMixin(viewsets.GenericViewSet):
         Mixin adding an .../export/ view to any objects.
 
         Export data from a given serializer (async Task).
+        You must implement an "export_serializer_class" attribute in your viewset.
         """
         if not self.export_serializer_class:
             raise NotImplementedError("ExportMixin requires an 'export_serializer_class' attribute.")
