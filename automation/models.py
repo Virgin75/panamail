@@ -29,3 +29,4 @@ class AutomationCampaign(BaseWorkspace):
     description = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=15, choices=STATUS, default=STATUS[0][0])
     trigger = models.ForeignKey('Trigger', on_delete=models.CASCADE, null=True, blank=True)
+    steps = models.ManyToManyField('Step', blank=True)

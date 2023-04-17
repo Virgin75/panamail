@@ -1,6 +1,7 @@
 import pytest
 from django.urls import reverse
 
+from commons.models import History
 from emails.factories import EmailFactory, SenderDomainFactory, SenderEmailFactory
 from emails.models import Tag, SenderDomain, SenderEmail, Email
 from users.serializers import MinimalUserSerializer
@@ -50,6 +51,19 @@ def test_update_email(auth_client):
     assert email.edit_history.first().edited_by.email == auth_client.user.email
     assert response.status_code == 200
     assert res['name'] == payload["name"]
+
+
+@pytest.mark.django_db
+def test_get_email_edit_history(auth_client):
+    email = EmailFactory(workspace=auth_client.workspace)
+    edits = [History.objects.create(edited_by=auth_client.user) for _ in range(2)]
+    email.edit_history.set(edits)
+    url = reverse("emails:emails-edit-history", kwargs={"pk": email.id})
+    response = auth_client.api.get(url)
+    res = response.json()
+    assert email.edit_history.first().edited_by.email == auth_client.user.email
+    assert response.status_code == 200
+    assert res['count'] == 2
 
 
 @pytest.mark.django_db

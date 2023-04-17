@@ -13,7 +13,7 @@ class EmailViewset(WorkspaceViewset):
 
     base_model_class = models.Email
     serializer_class = serializers.EmailSerializer
-    prefetch_related_fields = ("tags", "edit_history")
+    prefetch_related_fields = ("tags",)
     search_fields = ("name",)
     ordering_fields = ("name", "created_at")
     filterset_fields = ("type", "tags")

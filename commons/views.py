@@ -11,7 +11,7 @@ from rest_framework.response import Response
 
 from commons.models import History, ExportHistory
 from commons.paginations import x10ResultsPerPage
-from commons.serializers import ExportHistorySerializer
+from commons.serializers import ExportHistorySerializer, HistorySerializer
 from commons.tasks import generate_async_export
 from users.models import Workspace
 
@@ -118,6 +118,16 @@ class WorkspaceViewset(viewsets.ModelViewSet):
             context["workspace"] = workspace_id
 
         return context
+
+    @action(detail=True, methods=['get'])
+    def edit_history(self, request, *args, **kwargs):
+        """
+        Return a list of edits for a given object (paginated)
+        """
+        obj = self.get_object()
+        page = self.paginate_queryset(obj.edit_history.all())
+        serializer = HistorySerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
 
 
 class ExportMixin(viewsets.GenericViewSet):
