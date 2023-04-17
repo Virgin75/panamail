@@ -13,9 +13,6 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-load_dotenv()
 TESTING = bool(os.environ.get('TESTING', True))
 ENV = bool(os.environ.get('ENV', 'local'))
 
