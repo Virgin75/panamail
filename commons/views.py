@@ -45,7 +45,7 @@ class WorkspaceViewset(viewsets.ModelViewSet):
     parent_obj_url_lookup = None
     diff_obj_in_post_request = None
     select_related_fields = ("workspace",)
-    prefetch_related_fields = ("edit_history",)
+    prefetch_related_fields = []
 
     def get_queryset(self, **kwargs):
 

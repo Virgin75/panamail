@@ -89,7 +89,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'panamail.wsgi.application'
-
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "panamail.settings")
 
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases

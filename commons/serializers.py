@@ -15,7 +15,6 @@ class HistorySerializer(serializers.ModelSerializer):
 
 class WksFieldsSerializer(serializers.Serializer):
     created_by = MinimalUserSerializer(read_only=True)
-    edit_history = HistorySerializer(many=True, read_only=True)
 
 
 class RestrictedPKRelatedField(serializers.PrimaryKeyRelatedField):
