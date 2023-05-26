@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'django_filters',
     "django_rq",
     'drf_spectacular',
+    'automation',
     'commons',
     'users',
     'contacts',
@@ -57,6 +58,7 @@ INSTALLED_APPS = [
     'trackerapi',
     'smtp',
     'corsheaders',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
