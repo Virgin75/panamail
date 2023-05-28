@@ -31,7 +31,7 @@ class WorkspaceViewset(viewsets.ModelViewSet):
     """
     Viewset inherited by most of other views related to a Workspace.
 
-    - Return a queryset of objects matching only the Workspace of request user.
+    - Return a queryset of objects (depending on 'base_model_class') matching only the Workspace of request user.
     - Make sure Pagination is 10 results per page.
     - Implements default filter backends for ordering, search and filter.
     - Auto update edit_history table of related objects.
@@ -46,6 +46,24 @@ class WorkspaceViewset(viewsets.ModelViewSet):
     diff_obj_in_post_request = None
     select_related_fields = ("workspace",)
     prefetch_related_fields = []
+
+    def get_select_related_fields(self):
+        """
+        Allow to dynamically define the select_related fields to use in the View.
+        (!) Mandatory to define at least 1 'select_related' field because 'workspace' FK is in all models.
+        """
+        assert self.select_related_fields is not None, (
+                "'%s' should either include a `select_related_fields` attribute, "
+                "or override the `get_select_related_fields()` method."
+                % self.__class__.__name__
+        )
+        select_related_fields = self.select_related_fields
+        return select_related_fields
+
+    def get_prefetch_related_fields(self):
+        """Allow to dynamically define the select_related fields to use in the View."""
+        prefetch_related_fields = self.prefetch_related_fields
+        return prefetch_related_fields
 
     def get_queryset(self, **kwargs):
 
@@ -71,10 +89,13 @@ class WorkspaceViewset(viewsets.ModelViewSet):
         if self.parent_obj_type and self.parent_obj_url_lookup:
             qs_filters[self.parent_obj_type] = self.kwargs.get(self.parent_obj_url_lookup)
 
+        select_related_fields = self.get_select_related_fields()
+        prefetch_related_fields = self.get_prefetch_related_fields()
+
         return (
             self.base_model_class.objects.filter(**qs_filters)
-            .select_related(*self.select_related_fields)
-            .prefetch_related(*self.prefetch_related_fields)
+            .select_related(*select_related_fields)
+            .prefetch_related(*prefetch_related_fields)
         )
 
     def perform_update(self, serializer):

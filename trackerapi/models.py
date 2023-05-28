@@ -2,6 +2,7 @@ import uuid
 
 from django.db import models
 
+from automation.models import AutomationCampaign, AutomationCampaignContact
 from commons.models import BaseWorkspace
 from contacts.models import Workspace, Contact
 from users.models import CustomUser
@@ -17,6 +18,27 @@ class Page(BaseWorkspace):
     url = models.CharField(max_length=200)  # Or screen name
     viewed_by_contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='pages')
 
+    def save(self, *args, **kwargs):
+        """
+        Override 'save()' to check if an existing AutomationCampaign trigger exists for this Page.
+
+        If so, then add the Contact into the related Automation Campaign.
+        """
+        automations = AutomationCampaign.objects.filter(
+            page_trigger__name=self.url,
+            page_trigger__workspace=self.workspace,
+        )
+        if automations.exists():
+            for automation in automations:
+                process = AutomationCampaignContact.objects.create(
+                    automation_campaign=automation,
+                    contact=self.viewed_by_contact,
+                    current_step=automation.steps.first(),
+                    workspace=self.workspace,
+                )
+                process.async_execute_current_step()
+        super().save(*args, **kwargs)
+
 
 class Event(BaseWorkspace):
     """
@@ -28,6 +50,34 @@ class Event(BaseWorkspace):
     name = models.CharField(max_length=80)
     triggered_by_contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='events')
     attributes = models.JSONField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        """
+        Override 'save()' to check if an existing AutomationCampaign trigger exists for this Event.
+
+        If so, then add the Contact into the related Automation Campaign.
+        """
+        automations = AutomationCampaign.objects.filter(
+            event_trigger__name=self.name,
+            event_trigger__workspace=self.workspace,
+        )
+        if automations.exists():
+            for automation in automations:
+                filters_attributes_checked = set()
+                for k, v in automation.event_trigger.attributes.items():
+                    if self.attributes.get(k) == v:
+                        filters_attributes_checked.add(True)
+                    else:
+                        filters_attributes_checked.add(False)
+                if len(filters_attributes_checked) == 1 and True in filters_attributes_checked:
+                    process = AutomationCampaignContact.objects.create(
+                        automation_campaign=automation,
+                        contact=self.triggered_by_contact,
+                        current_step=automation.steps.first(),
+                        workspace=self.workspace,
+                    )
+                    process.async_execute_current_step()
+        super().save(*args, **kwargs)
 
 
 class TrackerAPIKey(BaseWorkspace):

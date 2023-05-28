@@ -74,5 +74,6 @@ class CampaignActivity(BaseWorkspace):
 
     action_type = models.CharField(max_length=5, choices=ACTIVITY_TYPES)
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE)
+    email = models.ForeignKey(Email, on_delete=models.CASCADE)
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     details = models.TextField(null=True, blank=True)
