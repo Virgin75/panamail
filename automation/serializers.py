@@ -156,12 +156,12 @@ class StepSerializer(serializers.ModelSerializer, WksFieldsSerializer):
     """
 
     automation_campaign = RestrictedPKRelatedField(model=AutomationCampaign)
-    content = PolymorphicStepTypeField(source='*')
+    content = PolymorphicStepTypeField(source='*', read_only=True)
 
     class Meta:
         model = Step
         fields = ('id', 'automation_campaign', 'order', 'step_type', 'content', 'created_at', 'created_by', 'workspace')
-        read_only_fields = ('created_at', 'created_by', 'total_contacts_now', 'total_contacts_past')
+        read_only_fields = ('created_at', 'created_by', 'total_contacts_now', 'total_contacts_past', 'content')
 
 
 class RetrieveAutomationCampaignSerializer(serializers.ModelSerializer, WksFieldsSerializer):

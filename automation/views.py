@@ -1,7 +1,10 @@
 from django.db.models import Prefetch
 
-from automation.models import AutomationCampaign, Step
-from automation.serializers import MinimalAutomationCampaignSerializer, RetrieveAutomationCampaignSerializer
+from automation.models import AutomationCampaign, Step, TriggerEvent, TriggerPage, TriggerList, TriggerSegment, \
+    TriggerTime, TriggerEmail, StepSendEmail, StepWait
+from automation.serializers import MinimalAutomationCampaignSerializer, RetrieveAutomationCampaignSerializer, \
+    TriggerEventSerializer, TriggerPageSerializer, TriggerListSerializer, TriggerSegmentSerializer, \
+    TriggerTimeSerializer, StepSerializer, TriggerEmailSerializer, StepSendEmailSerializer, StepWaitSerializer
 from commons.views import WorkspaceViewset
 
 
@@ -50,3 +53,111 @@ class AutomationCampaignViewSet(WorkspaceViewset):
                                                                "send_email_step__email")),
             )
         return []
+
+
+class TriggerEventViewset(WorkspaceViewset):
+    """
+    Perform all CRUD actions on TriggerEvent objects.
+
+    - api/automation-event-triggers/ (POST): Create a new event trigger in an Automation Campaign
+    - api/automation-event-triggers/<pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific event trigger
+    """
+
+    base_model_class = TriggerEvent
+    serializer_class = TriggerEventSerializer
+
+
+class TriggerPageViewset(WorkspaceViewset):
+    """
+    Perform all CRUD actions on TriggerPage objects.
+
+    - api/automation-page-triggers/ (POST): Create a new page trigger in an Automation Campaign
+    - api/automation-page-triggers/<pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific page trigger
+    """
+
+    base_model_class = TriggerPage
+    serializer_class = TriggerPageSerializer
+
+
+class TriggerListViewset(WorkspaceViewset):
+    """
+    Perform all CRUD actions on TriggerList objects.
+
+    - api/automation-list-triggers/ (POST): Create a new list trigger in an Automation Campaign
+    - api/automation-list-triggers/<pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific list trigger
+    """
+
+    base_model_class = TriggerList
+    serializer_class = TriggerListSerializer
+
+
+class TriggerSegmentViewset(WorkspaceViewset):
+    """
+    Perform all CRUD actions on TriggerSegment objects.
+
+    - api/automation-segment-triggers/ (POST): Create a new segment trigger in an Automation Campaign
+    - api/automation-segment-triggers/<pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific segment trigger
+    """
+
+    base_model_class = TriggerSegment
+    serializer_class = TriggerSegmentSerializer
+
+
+class TriggerTimeViewset(WorkspaceViewset):
+    """
+    Perform all CRUD actions on TriggerTime objects.
+
+    - api/automation-time-triggers/ (POST): Create a new time trigger in an Automation Campaign
+    - api/automation-time-triggers/<pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific time trigger
+    """
+
+    base_model_class = TriggerTime
+    serializer_class = TriggerTimeSerializer
+
+
+class TriggerEmailViewset(WorkspaceViewset):
+    """
+    Perform all CRUD actions on TriggerEmail objects.
+
+    - api/automation-email-triggers/ (POST): Create a new email trigger in an Automation Campaign
+    - api/automation-email-triggers/<pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific email trigger
+    """
+
+    base_model_class = TriggerEmail
+    serializer_class = TriggerEmailSerializer
+
+
+class StepViewset(WorkspaceViewset):
+    """
+    Perform all CRUD actions on Step objects.
+
+    - api/automation-steps/ (POST): Create a new step in a Workspace
+    - api/automation-steps/<pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific step
+    """
+
+    base_model_class = Step
+    serializer_class = StepSerializer
+
+
+class StepSendEmailViewset(WorkspaceViewset):
+    """
+    Perform all CRUD actions on Send-email Step objects.
+
+    - api/automation-sendemail-steps/ (POST): Create a new Send email step in Automation Campaign
+    - api/automation-sendemail-steps/<pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific Send email step
+    """
+
+    base_model_class = StepSendEmail
+    serializer_class = StepSendEmailSerializer
+
+
+class StepWaitViewset(WorkspaceViewset):
+    """
+    Perform all CRUD actions on Wait Step objects.
+
+    - api/automation-wait-steps/ (POST): Create a new Wait step in Automation Campaign
+    - api/automation-wait-steps/<pk>/ (GET, PATCH, DELETE): Retrieve, Update or delete a specific Wait step
+    """
+
+    base_model_class = StepWait
+    serializer_class = StepWaitSerializer
