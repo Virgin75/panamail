@@ -184,17 +184,17 @@ AUTH_USER_MODEL = 'users.CustomUser'
 # DJANGO-RQ
 RQ_QUEUES = {
     'default': {
-        'HOST': 'redis',
+        'HOST': 'localhost',
         'PORT': 6379,
         'DEFAULT_TIMEOUT': 360,
     },
     'events': {
-        'HOST': 'redis',
+        'HOST': 'localhost',
         'PORT': 6379,
         'DEFAULT_TIMEOUT': 360,
     },
     'cron': {
-        'HOST': 'redis',
+        'HOST': 'localhost',
         'PORT': 6379,
         'DEFAULT_TIMEOUT': 360,
     }

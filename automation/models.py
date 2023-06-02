@@ -1,10 +1,9 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from django.db import models
-from django_rq.queues import get_queue
+from django_rq.queues import get_queue, get_scheduler
 
 from automation.tasks import process_automation_step
-from campaigns.models import CampaignActivity
 from commons.models import BaseWorkspace
 
 
@@ -18,9 +17,9 @@ class AutomationCampaign(BaseWorkspace):
      >> A trigger event might be :
         - A contact has viewed a new page on your website ✅
         - A contact has triggered a new custom event ✅
-        - A contact has done something with an email (open, click, etc.)
-        - A contact has subscribed to a list
-        - A contact has joined a segment
+        - A contact has done something with an email (open, click, etc.) ✅
+        - A contact has subscribed to a list ✅
+        - A contact has joined a segment ✅
         - A time-based trigger (every day, every week, etc.)
         Trigger content is gotten from the custom @property 'trigger'.
 
@@ -68,6 +67,7 @@ class AutomationCampaign(BaseWorkspace):
                 return self.segment_trigger
             case 'TIME':
                 return self.time_trigger
+        return None
 
     @property
     def total_contacts_now(self):
@@ -78,6 +78,21 @@ class AutomationCampaign(BaseWorkspace):
     def total_contacts_past(self):
         """Return the total number of Contacts who have exited the campaign journey."""
         return self.done_contacts.count()
+
+    def save(self, *args, **kwargs):
+        """Prevent Activating an Automation Campaign without a Trigger or Step."""
+        if self.status == "ACTIVE" and not self.trigger:
+            raise ValueError("An Automation Campaign must have a Trigger to be activated.")
+        if self.status == "ACTIVE" and not self.steps.exists():
+            raise ValueError("An Automation Campaign must have at least 1 Step to be activated.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """Make sure time-based CRON jobs are also deleted."""
+        if self.trigger_type == 'TIME':
+            scheduler = get_scheduler(queue=get_queue("cron"))
+            scheduler.cancel(self.trigger.rq_cron_job_id)
+        super().delete(*args, **kwargs)
 
 
 class TriggerEvent(BaseWorkspace):
@@ -144,6 +159,7 @@ class TriggerEmail(BaseWorkspace):
     When a Contact has done the specific action on the choosen Email, then he enters the
     related Automation Campaign.
     """
+    from campaigns.models import CampaignActivity
 
     email = models.ForeignKey('emails.Email', on_delete=models.CASCADE, null=True, blank=True)
     action = models.CharField(max_length=50, null=True, blank=True, choices=CampaignActivity.ACTIVITY_TYPES)
@@ -170,8 +186,43 @@ class TriggerTime(BaseWorkspace):
 
     unit = models.CharField(max_length=50, null=True, blank=True, choices=TIME_UNITS)
     value = models.IntegerField(null=True, blank=True, default=1)
-    automation_campaign = models.OneToOneField('AutomationCampaign', on_delete=models.CASCADE, null=True, blank=True,
-                                               related_name='time_trigger')
+    rq_cron_job_id = models.CharField(max_length=50, null=True, blank=True)
+    automation_campaign = models.OneToOneField(
+        'AutomationCampaign',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='time_trigger'
+    )
+
+    def save(self, *args, **kwargs):
+        """Prevent creating a Time Trigger without a unit and value."""
+        from automation.tasks import add_all_contacts_to_automation_campaign
+        scheduler = get_scheduler(queue=get_queue("cron"))
+
+        if self._state.adding is True:
+            # Object creation
+            job = scheduler.schedule(
+                scheduled_time=datetime.utcnow(),
+                func=add_all_contacts_to_automation_campaign,
+                args=[self.automation_campaign_id],
+                interval=60,
+                repeat=None
+            )
+            self.rq_cron_job_id = job.id
+
+        else:
+            # Object update
+            scheduler.cancel(self.rq_cron_job_id)
+            new_job = scheduler.schedule(
+                scheduled_time=datetime.utcnow(),
+                func=add_all_contacts_to_automation_campaign,
+                args=[self.automation_campaign_id],
+                interval=60,
+                repeat=None
+            )
+            self.rq_cron_job_id = new_job.id
+        super().save(*args, **kwargs)
 
 
 class Step(BaseWorkspace):
@@ -264,7 +315,7 @@ class AutomationCampaignContact(BaseWorkspace):
             delay = self.current_step.content.delay
             delay_unit = self.current_step.content.delay_unit
             queue = get_queue('default')
-            queue.enqueue_at(timedelta(**{delay: delay_unit}), process_automation_step, self.id)
+            queue.enqueue_in(timedelta(**{delay: delay_unit}), process_automation_step, self.id)
         else:
             # Process Step immediately (async)
             process_automation_step.delay(self.id)

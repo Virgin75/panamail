@@ -105,7 +105,7 @@ class List(BaseWorkspace):
 
 
 class ContactInList(BaseWorkspace):
-    """M2M table storing the relating between a Contact and a List."""
+    """M2M table storing the relation between a Contact and a List."""
 
     class Meta:
         verbose_name_plural = "Relations Contact <> List"
@@ -115,6 +115,31 @@ class ContactInList(BaseWorkspace):
     list = models.ForeignKey(List, on_delete=models.CASCADE)
     double_optin_token = models.UUIDField(default=uuid.uuid4, editable=False, max_length=36)
     double_optin_validate_date = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        """
+        Override 'save()' to check if an existing AutomationCampaign trigger exists for new Contact in this List.
+
+        If so, then add the Contact into the related Automation Campaign.
+        (!) The '.save()' method is not called on bulk Contact insert into List
+        """
+        from automation.models import AutomationCampaign, AutomationCampaignContact
+
+        automations = AutomationCampaign.objects.filter(
+            list_trigger__list=self.list,
+            list_trigger__workspace=self.workspace,
+            status='ACTIVE'
+        )
+        if automations.exists():
+            for automation in automations:
+                process = AutomationCampaignContact.objects.create(
+                    automation_campaign=automation,
+                    contact=self.contact,
+                    current_step=automation.steps.first(),
+                    workspace=self.workspace,
+                )
+                process.async_execute_current_step()
+        super().save(*args, **kwargs)
 
 
 class ContactInListHistory(BaseWorkspace):
@@ -163,6 +188,31 @@ class ContactInSegment(BaseWorkspace):
 
     def __str__(self):
         return f"{self.contact} is in segment {self.segment}"
+
+    def save(self, *args, **kwargs):
+        """
+        Override 'save()' to check if an existing AutomationCampaign trigger exists for new Contact in this Segment.
+
+        If so, then add the Contact into the related Automation Campaign.
+        (!) The '.save()' method is not called on bulk Contact insert into Segment.
+        """
+        from automation.models import AutomationCampaign, AutomationCampaignContact
+
+        automations = AutomationCampaign.objects.filter(
+            segment_trigger__segment=self.segment,
+            segment_trigger__workspace=self.workspace,
+            status='ACTIVE'
+        )
+        if automations.exists():
+            for automation in automations:
+                process = AutomationCampaignContact.objects.create(
+                    automation_campaign=automation,
+                    contact=self.contact,
+                    current_step=automation.steps.first(),
+                    workspace=self.workspace,
+                )
+                process.async_execute_current_step()
+        super().save(*args, **kwargs)
 
 
 class ContactInSegmentHistory(BaseWorkspace):

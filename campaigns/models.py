@@ -63,6 +63,7 @@ class CampaignActivity(BaseWorkspace):
 
     Actions may be: Sent, Opens, Clicks, Unsubscribes, Bounces or Spam complaints.
     """
+
     ACTIVITY_TYPES = [
         ('SENT', 'The email was sent'),
         ('OPEN', 'The email was open'),
@@ -77,3 +78,27 @@ class CampaignActivity(BaseWorkspace):
     email = models.ForeignKey(Email, on_delete=models.CASCADE)
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE)
     details = models.TextField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        """
+        Override 'save()' to check if an existing AutomationCampaign trigger exists for this Activity.
+
+        If so, then add the Contact into the related Automation Campaign.
+        """
+        from automation.models import AutomationCampaign, AutomationCampaignContact
+
+        automations = AutomationCampaign.objects.filter(
+            email_trigger__action=self.action_type,
+            email_trigger__workspace=self.workspace,
+            status='ACTIVE'
+        )
+        if automations.exists():
+            for automation in automations:
+                process = AutomationCampaignContact.objects.create(
+                    automation_campaign=automation,
+                    contact=self.contact,
+                    current_step=automation.steps.first(),
+                    workspace=self.workspace,
+                )
+                process.async_execute_current_step()
+        super().save(*args, **kwargs)

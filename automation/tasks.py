@@ -2,7 +2,7 @@ import logging
 
 from django_rq import job
 
-from automation.models import AutomationCampaignContact
+from contacts.models import Contact
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,7 @@ def process_automation_step(id):
     Parameters:
      - id (str/UUID): The id of the AutomationCampaignContact object.
     """
+    from automation.models import AutomationCampaignContact
     task = AutomationCampaignContact.objects.get(id=id)
 
     if task.automation_campaign.status != "ACTIVE":
@@ -27,6 +28,7 @@ def process_automation_step(id):
 
     match current_step_type:
         case "SEND_EMAIL":
+            # TODO: call a function to send email here and keep this task short and clean
             pass
         case "WAIT":
             pass
@@ -40,3 +42,25 @@ def process_automation_step(id):
         task.automation_campaign.done_contacts.add(contact)
         task.delete()
         logger.info(f"No next Step. Exiting Contact from Automation Campaign (id: {task.automation_campaign.id})")
+
+
+@job
+def add_all_contacts_to_automation_campaign(id):
+    """Async task adding all contacts to an automation campaign (used in 'TIME' trigger campaign)."""
+    from automation.models import AutomationCampaign, AutomationCampaignContact
+
+    automation = AutomationCampaign.objects.get(id=id)
+
+    if automation.status != "ACTIVE":
+        logger.info(f"Automation campaign (id: {automation.id}) is not active. Returning...")
+        return
+
+    for contact in Contact.objects.filter(workspace=automation.workspace):
+        process = AutomationCampaignContact.objects.create(
+            automation_campaign=automation,
+            contact=contact,
+            current_step=automation.steps.first(),
+            workspace=automation.workspace,
+        )
+        process.async_execute_current_step()
+        logger.info(f"Added contact (id: {contact.id}) to campaign (id: {automation.id})")

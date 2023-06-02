@@ -2,7 +2,6 @@ import uuid
 
 from django.db import models
 
-from automation.models import AutomationCampaign, AutomationCampaignContact
 from commons.models import BaseWorkspace
 from contacts.models import Workspace, Contact
 from users.models import CustomUser
@@ -24,9 +23,12 @@ class Page(BaseWorkspace):
 
         If so, then add the Contact into the related Automation Campaign.
         """
+        from automation.models import AutomationCampaign, AutomationCampaignContact
+
         automations = AutomationCampaign.objects.filter(
             page_trigger__name=self.url,
             page_trigger__workspace=self.workspace,
+            status='ACTIVE'
         )
         if automations.exists():
             for automation in automations:
@@ -57,9 +59,12 @@ class Event(BaseWorkspace):
 
         If so, then add the Contact into the related Automation Campaign.
         """
+        from automation.models import AutomationCampaign, AutomationCampaignContact
+
         automations = AutomationCampaign.objects.filter(
             event_trigger__name=self.name,
             event_trigger__workspace=self.workspace,
+            status='ACTIVE'
         )
         if automations.exists():
             for automation in automations:
