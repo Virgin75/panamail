@@ -24,7 +24,7 @@ class AutomationCampaignViewSet(WorkspaceViewset):
 
     def get_serializer_class(self):
         """Return specific serializer depending on Viewset action type."""
-        if self.action in ("list", "create", "update", "delete"):
+        if self.action in ("list", "create", "partial_update", "update", "delete"):
             return MinimalAutomationCampaignSerializer
         if self.action == "retrieve":
             return RetrieveAutomationCampaignSerializer

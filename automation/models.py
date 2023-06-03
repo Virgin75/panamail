@@ -44,7 +44,7 @@ class AutomationCampaign(BaseWorkspace):
     description = models.TextField(null=True, blank=True)
     status = models.CharField(max_length=15, choices=STATUS, default=STATUS[0][0])
     trigger_type = models.CharField(max_length=15, choices=TRIGGER_TYPE, null=True, blank=True)
-    is_repeated = models.BooleanField(default=True)  # Whether a Contact can enter the campaign many times
+    is_repeated = models.BooleanField(default=False)  # Whether a Contact can enter the campaign many times
     steps = models.ManyToManyField('Step', blank=True)
     # Contacts currently moving through the campaign journey (not finished yet)
     current_contacts = models.ManyToManyField('contacts.Contact', blank=True, through='AutomationCampaignContact')
@@ -181,7 +181,7 @@ class TriggerTime(BaseWorkspace):
         ('DAY', 'Day'),
         ('WEEK', 'Week'),
         ('MONTH', 'Month'),
-        ('MONTH', 'Year'),
+        ('YEAR', 'Year'),
     ]
 
     unit = models.CharField(max_length=50, null=True, blank=True, choices=TIME_UNITS)

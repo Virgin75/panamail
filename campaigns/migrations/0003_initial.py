@@ -6,79 +6,86 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('trackerapi', '0001_initial'),
         ('users', '0001_initial'),
-        ('contacts', '0002_initial'),
-        ('commons', '0002_initial'),
+        ('commons', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ('emails', '0001_initial'),
+        ('campaigns', '0002_initial'),
+        ('contacts', '0001_initial'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='trackerapikey',
+            model_name='campaignactivity',
             name='created_by',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL,
                                     related_name='%(class)s_set', to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
-            model_name='trackerapikey',
+            model_name='campaignactivity',
             name='edit_history',
             field=models.ManyToManyField(blank=True, to='commons.history'),
         ),
         migrations.AddField(
-            model_name='trackerapikey',
-            name='owner',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='api_keys',
-                                    to=settings.AUTH_USER_MODEL),
+            model_name='campaignactivity',
+            name='email',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='emails.email'),
         ),
         migrations.AddField(
-            model_name='trackerapikey',
+            model_name='campaignactivity',
             name='workspace',
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='users.workspace'),
         ),
         migrations.AddField(
-            model_name='page',
+            model_name='campaign',
             name='created_by',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL,
                                     related_name='%(class)s_set', to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
-            model_name='page',
+            model_name='campaign',
             name='edit_history',
             field=models.ManyToManyField(blank=True, to='commons.history'),
         ),
         migrations.AddField(
-            model_name='page',
-            name='viewed_by_contact',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='pages', to='contacts.contact'),
+            model_name='campaign',
+            name='email_model',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                    to='emails.email'),
         ),
         migrations.AddField(
-            model_name='page',
-            name='workspace',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='users.workspace'),
+            model_name='campaign',
+            name='sender',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                    to='emails.senderemail'),
         ),
         migrations.AddField(
-            model_name='event',
-            name='created_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL,
-                                    related_name='%(class)s_set', to=settings.AUTH_USER_MODEL),
+            model_name='campaign',
+            name='stats',
+            field=models.ManyToManyField(through='campaigns.CampaignActivity', to='contacts.contact'),
         ),
         migrations.AddField(
-            model_name='event',
-            name='edit_history',
-            field=models.ManyToManyField(blank=True, to='commons.history'),
+            model_name='campaign',
+            name='tags',
+            field=models.ManyToManyField(blank=True, to='commons.tag'),
         ),
         migrations.AddField(
-            model_name='event',
-            name='triggered_by_contact',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='events', to='contacts.contact'),
+            model_name='campaign',
+            name='to_list',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                    to='contacts.list'),
         ),
         migrations.AddField(
-            model_name='event',
+            model_name='campaign',
+            name='to_segment',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE,
+                                    to='contacts.segment'),
+        ),
+        migrations.AddField(
+            model_name='campaign',
             name='workspace',
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='users.workspace'),
         ),
