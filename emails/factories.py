@@ -21,6 +21,7 @@ class EmailFactory(factory.django.DjangoModelFactory):
     to_field = fuzzy.FuzzyChoice(['{{contact.email}}', '{{event.user_email}}'])
     type = fuzzy.FuzzyChoice(['DESIGN', 'RAW'])
     raw_html = '<html>HW</html>'
+    workspace = factory.SelfAttribute('..workspace')
 
 
 class SenderDomainFactory(factory.django.DjangoModelFactory):

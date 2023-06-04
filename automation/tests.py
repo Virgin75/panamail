@@ -1,8 +1,11 @@
 import pytest
 from django.urls import reverse
 
-from automation.factories import AutomationCampaignFactory, TriggerEventFactory
-from automation.models import AutomationCampaign
+from automation.factories import AutomationCampaignFactory, TriggerEventFactory, StepFactory
+from automation.models import AutomationCampaign, TriggerEvent, TriggerPage, TriggerList, TriggerSegment, \
+    TriggerEmail, TriggerTime
+from contacts.factories import ListFactory, SegmentFactory
+from emails.factories import EmailFactory
 from users.factories import WorkspaceFactory
 from users.serializers import MinimalUserSerializer
 
@@ -74,6 +77,9 @@ def test_delete_automation_campaign(auth_client):
 def test_retrieve_automation_campaign(auth_client):
     automation = AutomationCampaignFactory(workspace=auth_client.workspace, trigger_type='EVENT')
     trigger = TriggerEventFactory(automation_campaign=automation, workspace=auth_client.workspace)
+    step1 = StepFactory(automation_campaign=automation, workspace=auth_client.workspace, order=1,
+                        step_type='SEND_EMAIL')
+    step2 = StepFactory(automation_campaign=automation, workspace=auth_client.workspace, order=2, step_type='WAIT')
 
     url = reverse("automation:automations-detail", kwargs={"pk": automation.id})
 
@@ -88,3 +94,131 @@ def test_retrieve_automation_campaign(auth_client):
     assert res['trigger']['name'] == trigger.name
     assert res['trigger']['with_attributes'] == trigger.with_attributes
     assert res['trigger']['automation_campaign'] == automation.id
+    assert res['steps'][0]['id'] == step1.id
+    assert res['steps'][0]['order'] == step1.order
+    assert res['steps'][0]['step_type'] == step1.step_type
+    assert res['steps'][1]['id'] == step2.id
+    assert res['steps'][1]['order'] == step2.order
+    assert res['steps'][1]['step_type'] == step2.step_type
+
+
+@pytest.mark.django_db
+def test_create_event_trigger(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace, trigger_type='EVENT')
+    url = reverse("automation:automation-event-triggers-list")
+
+    response = auth_client.api.post(url, {
+        'name': 'User Registered',
+        'automation_campaign': automation.id,
+        'with_attributes': {"username": "bvirgin"},
+        'workspace': auth_client.workspace.id,
+    }, format='json')
+
+    res = response.json()
+    assert response.status_code == 201
+    assert res['name'] == 'User Registered'
+    assert res['automation_campaign'] == automation.id
+    assert automation.trigger == TriggerEvent.objects.get(id=res['id'])
+
+
+@pytest.mark.django_db
+def test_create_page_trigger(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace, trigger_type='PAGE')
+    url = reverse("automation:automation-page-triggers-list")
+
+    response = auth_client.api.post(url, {
+        'name': 'Pricing page',
+        'automation_campaign': automation.id,
+        'workspace': auth_client.workspace.id,
+    })
+
+    res = response.json()
+    assert response.status_code == 201
+    assert res['name'] == 'Pricing page'
+    assert res['automation_campaign'] == automation.id
+    assert automation.trigger == TriggerPage.objects.get(id=res['id'])
+
+
+@pytest.mark.django_db
+def test_create_list_trigger(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace, trigger_type='LIST')
+    list = ListFactory(workspace=auth_client.workspace)
+
+    url = reverse("automation:automation-list-triggers-list")
+
+    response = auth_client.api.post(url, {
+        'list': list.id,
+        'automation_campaign': automation.id,
+        'workspace': auth_client.workspace.id,
+    }, format='json')
+
+    res = response.json()
+    assert response.status_code == 201
+    from contacts.serializers import MinimalListSerializer
+    assert res['list'] == MinimalListSerializer(list).data
+    assert res['automation_campaign'] == automation.id
+    assert automation.trigger == TriggerList.objects.get(id=res['id'])
+
+
+@pytest.mark.django_db
+def test_create_segment_trigger(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace, trigger_type='SEGMENT')
+    segment = SegmentFactory(workspace=auth_client.workspace)
+
+    url = reverse("automation:automation-segment-triggers-list")
+
+    response = auth_client.api.post(url, {
+        'segment': segment.id,
+        'automation_campaign': automation.id,
+        'workspace': auth_client.workspace.id,
+    })
+
+    res = response.json()
+    assert response.status_code == 201
+    from contacts.serializers import MinimalSegmentSerializer
+    assert res['segment'] == MinimalSegmentSerializer(segment).data
+    assert res['automation_campaign'] == automation.id
+    assert automation.trigger == TriggerSegment.objects.get(id=res['id'])
+
+
+@pytest.mark.django_db
+def test_create_email_trigger(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace, trigger_type='EMAIL')
+    email = EmailFactory(workspace=auth_client.workspace)
+
+    url = reverse("automation:automation-email-triggers-list")
+
+    response = auth_client.api.post(url, {
+        'email': email.id,
+        'action': 'OPEN',
+        'automation_campaign': automation.id,
+        'workspace': auth_client.workspace.id,
+    })
+
+    res = response.json()
+    assert response.status_code == 201
+    from emails.serializers import MinimalEmailSerializer
+    assert res['email'] == MinimalEmailSerializer(email).data
+    assert res['action'] == 'OPEN'
+    assert res['automation_campaign'] == automation.id
+    assert automation.trigger == TriggerEmail.objects.get(id=res['id'])
+
+
+@pytest.mark.django_db
+def test_create_time_trigger(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace, trigger_type='TIME')
+
+    url = reverse("automation:automation-time-triggers-list")
+
+    response = auth_client.api.post(url, {
+        'unit': 'DAY',
+        'value': 7,
+        'automation_campaign': automation.id,
+        'workspace': auth_client.workspace.id,
+    })
+
+    res = response.json()
+    assert response.status_code == 201
+    assert res['unit'] == 'DAY' and res['value'] == 7
+    assert res['automation_campaign'] == automation.id
+    assert automation.trigger == TriggerTime.objects.get(id=res['id'])

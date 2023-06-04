@@ -162,7 +162,7 @@ class TriggerEmail(BaseWorkspace):
     from campaigns.models import CampaignActivity
 
     email = models.ForeignKey('emails.Email', on_delete=models.CASCADE, null=True, blank=True)
-    action = models.CharField(max_length=50, null=True, blank=True, choices=CampaignActivity.ACTIVITY_TYPES)
+    action = models.CharField(max_length=50, choices=CampaignActivity.ACTIVITY_TYPES)
     automation_campaign = models.OneToOneField('AutomationCampaign', on_delete=models.CASCADE, null=True, blank=True,
                                                related_name='email_trigger')
 

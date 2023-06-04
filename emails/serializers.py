@@ -21,6 +21,12 @@ class EmailSerializer(serializers.ModelSerializer, WksFieldsSerializer):
         read_only_fields = ('created_at', 'created_by')
 
 
+class MinimalEmailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.Email
+        fields = ('id', 'name')
+
+
 class SenderDomainSerializer(serializers.ModelSerializer, WksFieldsSerializer):
     class Meta:
         model = models.SenderDomain

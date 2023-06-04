@@ -78,6 +78,12 @@ class ListSerializer(serializers.ModelSerializer, WksFieldsSerializer):
         read_only_fields = ['created_at', 'created_by']
 
 
+class MinimalListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = List
+        fields = ('id', 'name')
+
+
 class ContactInListSerializer(serializers.ModelSerializer):
     contact = RestrictedPKRelatedField(many=False, read_serializer=ContactSerializer, model=Contact)
     list = ListSerializer(many=False, read_only=True)
@@ -99,6 +105,12 @@ class SegmentBasicSerializer(serializers.ModelSerializer, WksFieldsSerializer):
         model = Segment
         fields = '__all__'
         read_only_fields = ['created_at', 'created_by']
+
+
+class MinimalSegmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Segment
+        fields = ('id', 'name')
 
 
 class ConditionReadOnlySerializer(serializers.ModelSerializer):

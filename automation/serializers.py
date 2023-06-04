@@ -7,13 +7,13 @@ from automation.models import (
     TriggerList,
     TriggerSegment,
     StepWait,
-    StepSendEmail, Step,
+    StepSendEmail, Step, TriggerEmail, TriggerTime,
 )
 from commons.serializers import WksFieldsSerializer, RestrictedPKRelatedField
 from contacts.models import List, Segment
-from contacts.serializers import SegmentBasicSerializer, ListSerializer
+from contacts.serializers import MinimalListSerializer, MinimalSegmentSerializer
 from emails.models import Email
-from emails.serializers import EmailSerializer
+from emails.serializers import EmailSerializer, MinimalEmailSerializer
 
 
 class PolymorphicTriggerTypeField(serializers.Field):
@@ -47,9 +47,9 @@ class PolymorphicStepTypeField(serializers.Field):
     def to_representation(self, value):
         match value.step_type:
             case 'SEND_EMAIL':
-                return TriggerEventSerializer(value.content).data
+                return StepSendEmailSerializer(value.content).data
             case 'WAIT':
-                return TriggerPageSerializer(value.content).data
+                return StepWaitSerializer(value.content).data
 
 
 class StepSendEmailSerializer(serializers.ModelSerializer, WksFieldsSerializer):
@@ -97,7 +97,7 @@ class TriggerListSerializer(serializers.ModelSerializer, WksFieldsSerializer):
     """Serialize for Read and Write on a TriggerList."""
 
     automation_campaign = RestrictedPKRelatedField(model=AutomationCampaign)
-    list = RestrictedPKRelatedField(model=List, read_serializer=ListSerializer)
+    list = RestrictedPKRelatedField(model=List, read_serializer=MinimalListSerializer)
 
     class Meta:
         model = TriggerList
@@ -108,7 +108,7 @@ class TriggerSegmentSerializer(serializers.ModelSerializer, WksFieldsSerializer)
     """Serialize for Read and Write on a TriggerSegment."""
 
     automation_campaign = RestrictedPKRelatedField(model=AutomationCampaign)
-    segment = RestrictedPKRelatedField(model=Segment, read_serializer=SegmentBasicSerializer)
+    segment = RestrictedPKRelatedField(model=Segment, read_serializer=MinimalSegmentSerializer)
 
     class Meta:
         model = TriggerSegment
@@ -119,10 +119,10 @@ class TriggerEmailSerializer(serializers.ModelSerializer, WksFieldsSerializer):
     """Serialize for Read and Write on a TriggerEmail."""
 
     automation_campaign = RestrictedPKRelatedField(model=AutomationCampaign)
-    email = RestrictedPKRelatedField(model=Email, read_serializer=EmailSerializer)
+    email = RestrictedPKRelatedField(model=Email, read_serializer=MinimalEmailSerializer)
 
     class Meta:
-        model = TriggerSegment
+        model = TriggerEmail
         fields = ('id', 'email', 'action', 'workspace', 'automation_campaign')
 
 
@@ -132,7 +132,7 @@ class TriggerTimeSerializer(serializers.ModelSerializer, WksFieldsSerializer):
     automation_campaign = RestrictedPKRelatedField(model=AutomationCampaign)
 
     class Meta:
-        model = TriggerSegment
+        model = TriggerTime
         fields = ('id', 'unit', 'value', 'workspace', 'automation_campaign')
 
 

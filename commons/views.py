@@ -92,11 +92,12 @@ class WorkspaceViewset(viewsets.ModelViewSet):
         select_related_fields = self.get_select_related_fields()
         prefetch_related_fields = self.get_prefetch_related_fields()
 
-        return (
+        qs = (
             self.base_model_class.objects.filter(**qs_filters)
             .select_related(*select_related_fields)
             .prefetch_related(*prefetch_related_fields)
         )
+        return qs
 
     def perform_update(self, serializer):
         serializer.validated_data.pop('workspace', None)

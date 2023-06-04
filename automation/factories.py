@@ -74,6 +74,25 @@ class TriggerTimeFactory(factory.django.DjangoModelFactory):
     workspace = factory.SelfAttribute('..workspace')
 
 
+class StepSendEmailFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = models.StepSendEmail
+
+    email = factory.SubFactory('emails.factories.EmailFactory')
+    step = factory.SubFactory('automation.factories.StepFactory')
+    workspace = factory.SelfAttribute('..workspace')
+
+
+class StepWaitFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = models.StepWait
+
+    step = factory.SubFactory('automation.factories.StepFactory')
+    delay = fuzzy.FuzzyInteger(1, 25)
+    delay_unit = fuzzy.FuzzyChoice(['days', 'hours', 'weeks', 'minutes'])
+    workspace = factory.SelfAttribute('..workspace')
+
+
 class StepFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = models.Step
@@ -82,3 +101,15 @@ class StepFactory(factory.django.DjangoModelFactory):
     workspace = factory.SelfAttribute('..workspace')
     order = 1
     step_type = fuzzy.FuzzyChoice(['SEND_EMAIL', 'WAIT'])
+
+    @factory.post_generation
+    def post(self, create, extracted, **kwargs):
+        """Add Step to AutomationCampaign and create Step content depending on 'step_type'."""
+        self.automation_campaign.steps.add(self)
+
+        match self.step_type:
+            case 'SEND_EMAIL':
+                return StepSendEmailFactory(step=self, workspace=self.workspace)
+            case 'WAIT':
+                return StepWaitFactory(step=self, workspace=self.workspace)
+        return None
