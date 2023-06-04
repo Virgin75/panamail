@@ -69,7 +69,7 @@ class Event(BaseWorkspace):
         if automations.exists():
             for automation in automations:
                 filters_attributes_checked = set()
-                for k, v in automation.event_trigger.attributes.items():
+                for k, v in automation.event_trigger.with_attributes.items():
                     if self.attributes.get(k) == v:
                         filters_attributes_checked.add(True)
                     else:

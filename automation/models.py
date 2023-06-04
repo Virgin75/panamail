@@ -254,9 +254,17 @@ class Step(BaseWorkspace):
     def content(self):
         match self.step_type:
             case 'SEND_EMAIL':
-                return self.send_email_step
+                try:
+                    return self.send_email_step
+                except self._meta.model.send_email_step.RelatedObjectDoesNotExist:
+                    return None
+
             case 'WAIT':
-                return self.wait_step
+                try:
+                    return self.wait_step
+                except self._meta.model.send_wait_step.RelatedObjectDoesNotExist:
+                    return None
+        return None
 
     @property
     def has_next_step(self):
@@ -315,7 +323,7 @@ class AutomationCampaignContact(BaseWorkspace):
             delay = self.current_step.content.delay
             delay_unit = self.current_step.content.delay_unit
             queue = get_queue('default')
-            queue.enqueue_in(timedelta(**{delay: delay_unit}), process_automation_step, self.id)
+            queue.enqueue_in(timedelta(**{delay_unit: delay}), process_automation_step, self.id)
         else:
             # Process Step immediately (async)
             process_automation_step.delay(self.id)

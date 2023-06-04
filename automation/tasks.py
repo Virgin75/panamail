@@ -24,7 +24,7 @@ def process_automation_step(id):
 
     contact = task.contact
     current_step = task.current_step.content
-    current_step_type = task.current_step.type
+    current_step_type = task.current_step.step_type
 
     match current_step_type:
         case "SEND_EMAIL":

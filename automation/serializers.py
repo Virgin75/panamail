@@ -13,7 +13,7 @@ from commons.serializers import WksFieldsSerializer, RestrictedPKRelatedField
 from contacts.models import List, Segment
 from contacts.serializers import MinimalListSerializer, MinimalSegmentSerializer
 from emails.models import Email
-from emails.serializers import EmailSerializer, MinimalEmailSerializer
+from emails.serializers import MinimalEmailSerializer
 
 
 class PolymorphicTriggerTypeField(serializers.Field):
@@ -56,7 +56,7 @@ class StepSendEmailSerializer(serializers.ModelSerializer, WksFieldsSerializer):
     """Serialize for Read and Write on a StepSendEmail."""
 
     step = RestrictedPKRelatedField(model=Step)
-    email = RestrictedPKRelatedField(model=Email, read_serializer=EmailSerializer)
+    email = RestrictedPKRelatedField(model=Email, read_serializer=MinimalEmailSerializer)
 
     class Meta:
         model = StepSendEmail

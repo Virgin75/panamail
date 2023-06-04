@@ -1,9 +1,10 @@
 import pytest
 from django.urls import reverse
 
-from automation.factories import AutomationCampaignFactory, TriggerEventFactory, StepFactory
+from automation.factories import AutomationCampaignFactory, TriggerEventFactory, StepFactory, BareStepFactory, \
+    StepSendEmailFactory, StepWaitFactory
 from automation.models import AutomationCampaign, TriggerEvent, TriggerPage, TriggerList, TriggerSegment, \
-    TriggerEmail, TriggerTime
+    TriggerEmail, TriggerTime, Step, StepSendEmail, StepWait
 from contacts.factories import ListFactory, SegmentFactory
 from emails.factories import EmailFactory
 from users.factories import WorkspaceFactory
@@ -222,3 +223,130 @@ def test_create_time_trigger(auth_client):
     assert res['unit'] == 'DAY' and res['value'] == 7
     assert res['automation_campaign'] == automation.id
     assert automation.trigger == TriggerTime.objects.get(id=res['id'])
+
+
+@pytest.mark.django_db
+def test_create_step(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace)
+    url = reverse("automation:automation-steps-list")
+
+    response = auth_client.api.post(url, {
+        'order': 1,
+        'step_type': 'SEND_EMAIL',
+        'automation_campaign': automation.id,
+        'workspace': auth_client.workspace.id,
+    })
+
+    res = response.json()
+    assert response.status_code == 201
+    assert res['order'] == 1
+    assert res['step_type'] == 'SEND_EMAIL'
+    assert res['automation_campaign'] == automation.id
+
+
+@pytest.mark.django_db
+def test_update_step(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace)
+    step = StepFactory(automation_campaign=automation, workspace=auth_client.workspace, order=1)
+
+    url = reverse("automation:automation-steps-detail", kwargs={'pk': step.id})
+
+    response = auth_client.api.patch(url, {
+        'order': 2,
+        'workspace': auth_client.workspace.id,
+    })
+
+    res = response.json()
+    assert response.status_code == 200
+    assert res['order'] == 2
+
+
+@pytest.mark.django_db
+def test_delete_step(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace)
+    step = StepFactory(automation_campaign=automation, workspace=auth_client.workspace)
+
+    url = reverse("automation:automation-steps-detail", kwargs={'pk': step.id})
+
+    response = auth_client.api.delete(url, {
+        'workspace': auth_client.workspace.id,
+    })
+
+    assert response.status_code == 204
+    assert not Step.objects.filter(id=step.id).exists()
+
+
+@pytest.mark.django_db
+def test_create_send_email_step(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace)
+    email = EmailFactory(workspace=auth_client.workspace)
+    step = BareStepFactory(automation_campaign=automation, workspace=auth_client.workspace, step_type='SEND_EMAIL')
+
+    url = reverse("automation:automation-email-steps-list")
+
+    response = auth_client.api.post(url, {
+        'email': email.id,
+        'step': step.id,
+        'workspace': auth_client.workspace.id,
+    })
+
+    res = response.json()
+    assert response.status_code == 201
+    assert res['email']['id'] == email.id
+    assert res['step'] == step.id
+    assert step.content == StepSendEmail.objects.get(id=res['id'])
+
+
+@pytest.mark.django_db
+def test_update_send_email_step(auth_client):
+    email = EmailFactory(workspace=auth_client.workspace)
+    email2 = EmailFactory(workspace=auth_client.workspace)
+    send_email_step = StepSendEmailFactory(workspace=auth_client.workspace, email=email)
+
+    url = reverse("automation:automation-email-steps-detail", kwargs={'pk': send_email_step.id})
+
+    response = auth_client.api.patch(url, {
+        'email': email2.id,
+        'workspace': auth_client.workspace.id,
+    })
+
+    res = response.json()
+    assert response.status_code == 200
+    assert res['email']['id'] == email2.id
+
+
+@pytest.mark.django_db
+def test_create_wait_step(auth_client):
+    automation = AutomationCampaignFactory(workspace=auth_client.workspace)
+    step = BareStepFactory(automation_campaign=automation, workspace=auth_client.workspace, step_type='WAIT')
+
+    url = reverse("automation:automation-wait-steps-list")
+
+    response = auth_client.api.post(url, {
+        'delay_unit': 'days',
+        'delay': 7,
+        'step': step.id,
+        'workspace': auth_client.workspace.id,
+    })
+
+    res = response.json()
+    assert response.status_code == 201
+    assert res['delay_unit'] == 'days' and res['delay'] == 7
+    assert res['step'] == step.id
+    assert step.content == StepWait.objects.get(id=res['id'])
+
+
+@pytest.mark.django_db
+def test_update_wait_step(auth_client):
+    wait_step = StepWaitFactory(workspace=auth_client.workspace)
+
+    url = reverse("automation:automation-wait-steps-detail", kwargs={'pk': wait_step.id})
+
+    response = auth_client.api.patch(url, {
+        'delay': 8,
+        'workspace': auth_client.workspace.id,
+    })
+
+    res = response.json()
+    assert response.status_code == 200
+    assert res['delay'] == 8
